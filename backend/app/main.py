@@ -51,7 +51,7 @@ processor: RubberbandProcessor
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     global storage, splitter, processor  # noqa: PLW0603
     storage = SongStorage(DATA_DIR)
     splitter = StemSplitter()
