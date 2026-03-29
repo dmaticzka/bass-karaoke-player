@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: builder – install Python dependencies
 # ---------------------------------------------------------------------------
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
 # ---------------------------------------------------------------------------
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 LABEL org.opencontainers.image.title="Bass Karaoke Player"
 LABEL org.opencontainers.image.description="Web-based music player with stem splitting and pitch/tempo control"
