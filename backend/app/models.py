@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class StemName(str, Enum):
+class StemName(StrEnum):
     """Available stem names produced by demucs htdemucs model."""
 
     DRUMS = "drums"
@@ -19,7 +19,7 @@ class StemName(str, Enum):
 ALL_STEMS: list[StemName] = list(StemName)
 
 
-class SongStatus(str, Enum):
+class SongStatus(StrEnum):
     """Processing status of an uploaded song."""
 
     UPLOADED = "uploaded"
