@@ -1,0 +1,33 @@
+name: Copilot Setup Steps
+
+# Prepares the environment before a Copilot agent runs a task.
+# See: https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  copilot-setup-steps:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            rubberband-cli \
+            ffmpeg \
+            libsndfile1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: pyproject.toml
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements-dev.txt

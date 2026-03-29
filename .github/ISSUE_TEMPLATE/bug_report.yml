@@ -1,0 +1,67 @@
+name: Bug Report
+description: Report a bug or unexpected behaviour in Bass Karaoke Player.
+title: "bug: <short description>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in as much detail as possible so we can reproduce and fix the issue quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "When I upload an MP3 and click 'Load', the player shows an error…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Step-by-step instructions to reliably reproduce the issue.
+      placeholder: |
+        1. Upload an MP3 file
+        2. Wait for stem splitting to finish
+        3. Click "Load"
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Fill in relevant details.
+      value: |
+        - OS:
+        - Browser (if frontend issue):
+        - Deployment: Docker / local Python
+        - Python version (if local):
+        - Bass Karaoke Player version / commit:
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error messages
+      description: Paste any backend logs, browser console errors, or network responses.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other information, screenshots, or files that might help.
