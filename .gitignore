@@ -1,3 +1,17 @@
+# ============================================================
+# Bass Karaoke Player – project-specific ignores
+# ============================================================
+
+# Uploaded songs, split stems and processed audio are runtime data
+# (tracked only via .gitkeep files to preserve directory structure)
+data/uploads/*/
+data/stems/*/
+data/processed/*/
+
+# ============================================================
+# Python (standard GitHub template)
+# ============================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

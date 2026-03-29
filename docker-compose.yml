@@ -1,0 +1,27 @@
+services:
+  bass-karaoke-player:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: bass-karaoke-player:latest
+    container_name: bass-karaoke-player
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist uploaded songs and processed stems between restarts
+      - karaoke_data:/data
+    environment:
+      - DATA_DIR=/data
+      - FRONTEND_DIR=/app/frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  karaoke_data:
+    driver: local
