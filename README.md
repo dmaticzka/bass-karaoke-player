@@ -1,1 +1,141 @@
-# bass-karaoke-player
+# Bass Karaoke Player
+
+A web-based music player that lets you split songs into individual stems (voice, bass, drums, other), transpose pitch, adjust tempo, and control per-stem volume — all in your browser.
+
+## Features
+
+- 🎵 **Stem splitting** – powered by [demucs](https://github.com/adefossez/demucs) (`htdemucs` model)
+- 🎹 **Pitch transposition** – shift songs up/down by up to ±12 semitones via [rubberband](https://github.com/breakfastquay/rubberband)
+- ⏩ **Tempo control** – slow down or speed up (25%–400%) without changing pitch
+- 🎚️ **Per-stem volume mixing** – independently adjust volume for drums, bass, vocals, and other instruments
+- 🌐 **Web interface** – clean, responsive UI; no native app required
+- 🐳 **Docker** – single-command deployment
+
+## Quick Start
+
+### With Docker (recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/dmaticzka/bass-karaoke-player.git
+cd bass-karaoke-player
+
+# Start the application
+docker compose up --build
+
+# Open in your browser
+open http://localhost:8000
+```
+
+### Without Docker
+
+**Prerequisites:**
+- Python ≥ 3.10
+- [rubberband](https://github.com/breakfastquay/rubberband) CLI (`rubberband` command)
+- ffmpeg (required by demucs)
+
+```bash
+# Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Start the server
+FRONTEND_DIR=frontend DATA_DIR=data \
+  uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Open in your browser
+open http://localhost:8000
+```
+
+## Usage
+
+1. **Upload a song** – drag & drop or browse for an MP3, WAV, FLAC, OGG, M4A, or AAC file
+2. **Wait for stem splitting** – demucs runs in the background (may take a few minutes depending on song length)
+3. **Load the song** – click "Load" once the status shows "Ready"
+4. **Adjust controls:**
+   - **Pitch** slider: shift semitones (−12 to +12)
+   - **Tempo** slider: speed percentage (25%–400%)
+   - Click **Apply Pitch & Tempo** to trigger rubberband processing
+   - Each stem card has an individual **volume** slider and **mute** button
+5. Click **▶ Play All** to start playback
+
+## API Reference
+
+The backend exposes a REST API:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/health` | Health check |
+| `GET`  | `/api/songs` | List all songs |
+| `POST` | `/api/songs` | Upload a new song (multipart form) |
+| `GET`  | `/api/songs/{id}` | Get song metadata |
+| `DELETE` | `/api/songs/{id}` | Delete a song |
+| `GET`  | `/api/songs/{id}/stems/{stem}` | Stream raw stem WAV |
+| `POST` | `/api/songs/{id}/stems/{stem}/process` | Apply pitch/tempo via rubberband |
+| `GET`  | `/api/songs/{id}/stems/{stem}/processed?pitch=&tempo=` | Stream processed stem |
+
+Interactive API docs are available at `http://localhost:8000/docs`.
+
+## Development
+
+### Setup
+
+```bash
+# Install dev dependencies
+pip install -r backend/requirements-dev.txt
+
+# Run tests
+pytest backend/tests/ -v
+
+# Lint & format check
+ruff check backend/
+ruff format --check backend/
+```
+
+### Project structure
+
+```
+bass-karaoke-player/
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py          # FastAPI application
+│   │   ├── audio_processor.py  # demucs + rubberband wrappers
+│   │   ├── models.py        # Pydantic data models
+│   │   └── storage.py       # File storage management
+│   ├── tests/
+│   │   ├── test_api.py
+│   │   ├── test_audio_processor.py
+│   │   ├── test_models.py
+│   │   └── test_storage.py
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
+├── .github/
+│   └── workflows/
+│       ├── ci.yml       # Lint, test, docker build on every push/PR
+│       └── release.yml  # Publish GitHub release + Docker image on tag
+├── Dockerfile
+├── docker-compose.yml
+└── pyproject.toml
+```
+
+### Branching & commits
+
+- All work is done in **feature branches** (`feature/…`) and merged via **Pull Requests**
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.)
+- Versioning follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`)
+- Releases are triggered by pushing a tag: `git tag v1.0.0 && git push --tags`
+
+### CI/CD
+
+| Workflow | Trigger | Steps |
+|----------|---------|-------|
+| `ci.yml` | Push / PR | Lint (ruff, mypy) → Test (py 3.10/3.11/3.12) → Docker build |
+| `release.yml` | Tag `v*.*.*` | Validate → Test → GitHub Release → Push Docker image to GHCR |
+
+## License
+
+MIT – see [LICENSE](LICENSE).
