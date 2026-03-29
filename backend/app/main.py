@@ -83,8 +83,18 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Mount frontend static files if the directory exists
+    # Serve the frontend at the root and mount static assets if the directory exists
     if FRONTEND_DIR.is_dir():
+
+        @app.get("/", include_in_schema=False)
+        async def serve_root() -> FileResponse:
+            index = FRONTEND_DIR / "index.html"
+            if not index.is_file():
+                raise HTTPException(
+                    status_code=404, detail="Frontend index.html not found."
+                )
+            return FileResponse(str(index))
+
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     app.include_router(_song_router())
