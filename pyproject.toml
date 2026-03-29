@@ -7,7 +7,7 @@ name = "bass-karaoke-player"
 version = "0.1.0"
 description = "A web-based karaoke/music player with stem splitting, pitch/tempo control"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 authors = [{ name = "bass-karaoke-player contributors" }]
 keywords = ["music", "karaoke", "stems", "demucs", "rubberband"]
@@ -16,9 +16,7 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "fastapi>=0.111.0",
@@ -49,7 +47,7 @@ addopts = "--cov=backend/app --cov-report=term-missing --cov-report=xml"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py313"
 src = ["backend"]
 
 [tool.ruff.lint]
@@ -57,7 +55,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.13"
 strict = true
 ignore_missing_imports = true
 explicit_package_bases = true
