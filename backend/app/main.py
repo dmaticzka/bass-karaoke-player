@@ -25,7 +25,7 @@ from backend.app.models import (
     StemName,
 )
 from backend.app.storage import SongStorage
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -141,9 +141,7 @@ def _split_song_task(song_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _song_router() -> APIRouter:  # noqa: F821
-    from fastapi import APIRouter
-
+def _song_router() -> APIRouter:
     router = APIRouter(prefix="/api", tags=["songs"])
 
     @router.get("/songs", response_model=SongListResponse)
