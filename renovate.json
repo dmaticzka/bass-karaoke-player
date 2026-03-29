@@ -2,5 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Combine all GitHub Actions updates into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Combine all Python backend dependency updates into a single PR",
+      "matchManagers": ["pep621"],
+      "groupName": "Python backend dependencies"
+    }
   ]
 }
