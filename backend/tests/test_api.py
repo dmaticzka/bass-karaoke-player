@@ -271,3 +271,52 @@ class TestProcessStem:
         assert resp.status_code == 200
         # Processor should NOT have been called (cache hit)
         main_module.processor.process.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+
+
+class TestFrontend:
+    def test_root_serves_index_html(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET / must return the frontend index.html when FRONTEND_DIR exists."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text(
+            "<!DOCTYPE html><html><body>Bass Karaoke Player</body></html>"
+        )
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        data_dir = tmp_path / "data"
+        main_module.storage = SongStorage(data_dir)
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+        resp = test_client.get("/")
+        assert resp.status_code == 200
+        assert "html" in resp.headers["content-type"]
+        assert "Bass Karaoke Player" in resp.text
+
+    def test_root_not_available_without_frontend_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET / must return 404 when FRONTEND_DIR does not exist."""
+        import backend.app.main as main_module
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", tmp_path / "nonexistent")
+        data_dir = tmp_path / "data"
+        main_module.storage = SongStorage(data_dir)
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app, raise_server_exceptions=False)
+        resp = test_client.get("/")
+        assert resp.status_code == 404
