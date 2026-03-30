@@ -15,12 +15,29 @@ A web-based music player that lets you split songs into individual stems (voice,
 
 ### With Docker (recommended)
 
+Pull the pre-built image from the GitHub Container Registry and start immediately — no clone required:
+
 ```bash
-# Clone the repository
+docker run -d \
+  -p 8000:8000 \
+  -v karaoke_data:/data \
+  --name bass-karaoke-player \
+  ghcr.io/dmaticzka/bass-karaoke-player:latest
+
+# Open in your browser
+open http://localhost:8000
+```
+
+Or clone the repo and use `docker compose`, which pulls the published image by default:
+
+```bash
 git clone https://github.com/dmaticzka/bass-karaoke-player.git
 cd bass-karaoke-player
 
-# Start the application
+# Pull the published image and start
+docker compose up
+
+# — or — build the image locally instead
 docker compose up --build
 
 # Open in your browser
@@ -115,10 +132,12 @@ bass-karaoke-player/
 │   └── app.js
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml       # Lint, test, docker build on every push/PR
-│       └── release.yml  # Publish GitHub release + Docker image on tag
+│       ├── ci.yml              # Lint, test, docker build on every push/PR
+│       ├── release.yml         # Publish GitHub release + Docker image on tag
+│       └── auto-release.yml    # Auto-bump version + publish on push to main
 ├── Dockerfile
 ├── docker-compose.yml
+├── GHCR_SETUP.md
 └── pyproject.toml
 ```
 
@@ -133,8 +152,12 @@ bass-karaoke-player/
 
 | Workflow | Trigger | Steps |
 |----------|---------|-------|
-| `ci.yml` | Push / PR | Lint (ruff, mypy) → Test (py 3.10/3.11/3.12) → Docker build |
-| `release.yml` | Tag `v*.*.*` | Validate → Test → GitHub Release → Push Docker image to GHCR |
+| `ci.yml` | Push / PR | Lint (ruff, mypy) → Test → Docker build |
+| `release.yml` | Tag `v*.*.*` | Validate → Test → GitHub Release → Push Docker image to `ghcr.io` |
+| `auto-release.yml` | Push to `main` | Auto-bump version tag → GitHub Release → Push Docker image to `ghcr.io` |
+
+The Docker image is published to `ghcr.io/dmaticzka/bass-karaoke-player` and tagged as `latest`, plus the full, minor, and major semver versions.
+See [GHCR_SETUP.md](GHCR_SETUP.md) for the one-time GitHub settings you need to enable.
 
 ## License
 
