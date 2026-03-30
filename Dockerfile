@@ -23,8 +23,8 @@ COPY pyproject.toml uv.lock ./
 
 # Install production dependencies (including gpu extras) using the locked versions.
 # --no-install-project skips installing the project itself (not needed at runtime).
-# --system installs into the system Python so the runtime stage can COPY --from=builder.
-RUN uv sync --frozen --no-dev --extra gpu --no-install-project --system
+# UV_SYSTEM_PYTHON=1 installs into the system Python so the runtime stage can COPY --from=builder.
+RUN UV_SYSTEM_PYTHON=1 uv sync --frozen --no-dev --extra gpu --no-install-project
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
