@@ -40,6 +40,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
 
+# Register the NVIDIA CUDA library directory with the dynamic linker so that
+# torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the
+# nvidia-npp Python package.
+RUN python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
+        > /etc/ld.so.conf.d/nvidia-cu13.conf \
+    && ldconfig
+
 # Copy application source
 WORKDIR /app
 COPY backend/ ./backend/
