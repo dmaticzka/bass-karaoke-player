@@ -114,6 +114,11 @@ def _split_song_task(song_id: str) -> None:
         return
 
     original_dir = storage.original_dir(song_id)
+    if not original_dir.is_dir():
+        storage.update_status(
+            song_id, SongStatus.ERROR, error_message="No audio file found"
+        )
+        return
     audio_files = [
         f for f in original_dir.iterdir() if f.suffix.lower() in ALLOWED_AUDIO_SUFFIXES
     ]
