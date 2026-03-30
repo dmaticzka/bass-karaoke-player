@@ -84,7 +84,7 @@ class SongStorage:
         return orig_dir / filename
 
     def stem_path(self, song_id: str, stem: StemName) -> Path:
-        return self.stems_output_dir(song_id) / f"{stem.value}.wav"
+        return self.stems_output_dir(song_id) / f"{stem.value}.mp3"
 
     def processed_path(
         self,
@@ -101,7 +101,7 @@ class SongStorage:
         )
         proc_dir = self.processed_output_dir(song_id)
         proc_dir.mkdir(parents=True, exist_ok=True)
-        return proc_dir / f"{stem.value}_{tag}.wav"
+        return proc_dir / f"{stem.value}_{tag}.mp3"
 
     # ------------------------------------------------------------------
     # Factory helpers

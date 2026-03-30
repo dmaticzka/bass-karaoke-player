@@ -11,7 +11,7 @@ from backend.app.models import StemName
 
 logger = logging.getLogger(__name__)
 
-DEMUCS_MODEL = "htdemucs"
+DEMUCS_MODEL = "mdx"
 RUBBERBAND_BIN = "rubberband"
 
 
@@ -58,19 +58,20 @@ class StemSplitter:
             "demucs",
             "--name",
             self.model,
+            "--mp3",
             "--out",
             str(output_dir),
             str(input_path),
         ]
         _run(cmd)
 
-        # demucs writes to <output_dir>/<model>/<track_name>/<stem>.wav
+        # demucs writes to <output_dir>/<model>/<track_name>/<stem>.mp3
         track_name = input_path.stem
         stem_dir = output_dir / self.model / track_name
 
         stems: dict[StemName, Path] = {}
         for stem in StemName:
-            candidate = stem_dir / f"{stem.value}.wav"
+            candidate = stem_dir / f"{stem.value}.mp3"
             if candidate.exists():
                 stems[stem] = candidate
             else:
@@ -106,6 +107,10 @@ class RubberbandProcessor:
 
         cmd = [
             self.rubberband_bin,
+            "--threads",
+            "--fine",
+            "--formant",
+            "--centre-focus",
             "--pitch",
             str(pitch_semitones),
             "--tempo",

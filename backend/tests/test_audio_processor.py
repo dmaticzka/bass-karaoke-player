@@ -41,17 +41,17 @@ class TestRun:
 class TestStemSplitter:
     @pytest.fixture()
     def splitter(self) -> StemSplitter:
-        return StemSplitter(model="htdemucs")
+        return StemSplitter(model="mdx")
 
     def test_split_success(self, splitter: StemSplitter, tmp_path: Path) -> None:
         input_wav = tmp_path / "song.wav"
         input_wav.write_bytes(b"\x00" * 100)
 
         # Create mock demucs output files
-        model_dir = tmp_path / "stems" / "htdemucs" / "song"
+        model_dir = tmp_path / "stems" / "mdx" / "song"
         model_dir.mkdir(parents=True)
         for stem in StemName:
-            (model_dir / f"{stem.value}.wav").write_bytes(b"\x00" * 100)
+            (model_dir / f"{stem.value}.mp3").write_bytes(b"\x00" * 100)
 
         with patch("backend.app.audio_processor._run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
@@ -60,17 +60,17 @@ class TestStemSplitter:
         assert set(result.keys()) == set(StemName)
         for stem, path in result.items():
             assert path.exists()
-            assert path.name == f"{stem.value}.wav"
+            assert path.name == f"{stem.value}.mp3"
 
     def test_split_missing_stem(self, splitter: StemSplitter, tmp_path: Path) -> None:
         input_wav = tmp_path / "song.wav"
         input_wav.write_bytes(b"\x00" * 100)
 
         # Only create some stems (missing vocals)
-        model_dir = tmp_path / "stems" / "htdemucs" / "song"
+        model_dir = tmp_path / "stems" / "mdx" / "song"
         model_dir.mkdir(parents=True)
         for stem in [StemName.BASS, StemName.DRUMS, StemName.OTHER]:
-            (model_dir / f"{stem.value}.wav").write_bytes(b"\x00" * 100)
+            (model_dir / f"{stem.value}.mp3").write_bytes(b"\x00" * 100)
         # vocals is intentionally missing
 
         with patch("backend.app.audio_processor._run") as mock_run:
@@ -93,16 +93,17 @@ class TestStemSplitter:
         input_wav = tmp_path / "song.wav"
         input_wav.write_bytes(b"\x00" * 100)
 
-        model_dir = tmp_path / "stems" / "htdemucs" / "song"
+        model_dir = tmp_path / "stems" / "mdx" / "song"
         model_dir.mkdir(parents=True)
         for stem in StemName:
-            (model_dir / f"{stem.value}.wav").write_bytes(b"\x00" * 100)
+            (model_dir / f"{stem.value}.mp3").write_bytes(b"\x00" * 100)
 
         with patch("backend.app.audio_processor._run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             splitter.split(input_wav, tmp_path / "stems")
             called_cmd = mock_run.call_args[0][0]
-            assert "htdemucs" in called_cmd
+            assert "mdx" in called_cmd
+            assert "--mp3" in called_cmd
             assert str(input_wav) in called_cmd
 
 
@@ -131,6 +132,10 @@ class TestRubberbandProcessor:
 
         assert result == output_wav
         call_cmd = mock_run.call_args[0][0]
+        assert "--threads" in call_cmd
+        assert "--fine" in call_cmd
+        assert "--formant" in call_cmd
+        assert "--centre-focus" in call_cmd
         assert "--pitch" in call_cmd
         assert "2.0" in call_cmd
         assert "--tempo" in call_cmd

@@ -455,7 +455,7 @@ class TestSplitSongTask:
         fake_dir.mkdir()
         stem_paths: dict[StemName, Path] = {}
         for stem in StemName:
-            p = fake_dir / f"{stem.value}.wav"
+            p = fake_dir / f"{stem.value}.mp3"
             p.write_bytes(b"RIFF" + b"\x00" * 40)
             stem_paths[stem] = p
 
