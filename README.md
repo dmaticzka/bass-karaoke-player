@@ -74,7 +74,7 @@ open http://localhost:8000
 3. **Load the song** – click "Load" once the status shows "Ready"
 4. **Adjust controls:**
    - **Pitch** slider: shift semitones (−12 to +12)
-   - **Tempo** slider: speed percentage (25%–400%)
+   - **Tempo** slider: speed percentage (25%–200%)
    - Click **Apply Pitch & Tempo** to trigger rubberband processing
    - Each stem card has an individual **volume** slider and **mute** button
 5. Click **▶ Play All** to start playback
