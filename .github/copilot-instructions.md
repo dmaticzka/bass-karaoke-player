@@ -77,6 +77,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - The `TestClient` fixture creates a fresh `create_app()` for every test class.
 - Prefer `class`-based test organisation (e.g. `class TestSongUpload:`).
 - `asyncio_mode = "auto"` is configured in `pyproject.toml` – no explicit `@pytest.mark.asyncio` needed.
+- **Coverage requirement: the project must maintain >95 % line coverage.** This is enforced via `--cov-fail-under=95` in `pyproject.toml` and measured with `pytest-cov`. Every new feature or bug-fix must include tests that keep total coverage above this threshold.
 
 ## REST API conventions
 

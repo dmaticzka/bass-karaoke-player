@@ -94,3 +94,47 @@ class TestSongStorage:
     def test_new_song_id_is_unique(self, storage: SongStorage) -> None:
         ids = {storage.new_song_id() for _ in range(100)}
         assert len(ids) == 100
+
+    def test_list_songs_skips_corrupt_json(self, storage: SongStorage) -> None:
+        """Corrupt meta.json files must be silently ignored."""
+        bad_dir = storage.uploads_dir / "bad-id"
+        bad_dir.mkdir()
+        (bad_dir / "meta.json").write_text("not-valid-json{{{", encoding="utf-8")
+
+        good_song = storage.create_song("good.mp3")
+        songs = storage.list_songs()
+        ids = [s.id for s in songs]
+        assert good_song.id in ids
+        assert "bad-id" not in ids
+
+    def test_delete_song_removes_stems_and_processed_dirs(
+        self, storage: SongStorage
+    ) -> None:
+        """Deleting a song also removes its stems/ and processed/ subdirectories."""
+        song = storage.create_song("track.mp3")
+
+        stems_dir = storage.stems_dir / song.id
+        stems_dir.mkdir(parents=True)
+        (stems_dir / "vocals.wav").write_bytes(b"\x00" * 10)
+
+        proc_dir = storage.processed_dir / song.id
+        proc_dir.mkdir(parents=True)
+        (proc_dir / "vocals_p0d0_t1d000.wav").write_bytes(b"\x00" * 10)
+
+        result = storage.delete_song(song.id)
+        assert result is True
+        assert not stems_dir.exists()
+        assert not proc_dir.exists()
+
+    def test_update_status_stores_error_message(self, storage: SongStorage) -> None:
+        """update_status with error_message must persist the message."""
+        song = storage.create_song("fail.mp3")
+        updated = storage.update_status(
+            song.id, SongStatus.ERROR, error_message="processing failed"
+        )
+        assert updated is not None
+        assert updated.error_message == "processing failed"
+
+        reloaded = storage.load_song(song.id)
+        assert reloaded is not None
+        assert reloaded.error_message == "processing failed"

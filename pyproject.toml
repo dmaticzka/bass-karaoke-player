@@ -43,7 +43,7 @@ where = ["backend"]
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
-addopts = "--cov=backend/app --cov-report=term-missing --cov-report=xml"
+addopts = "--cov=backend/app --cov-report=term-missing --cov-report=xml --cov-fail-under=95"
 
 [tool.ruff]
 line-length = 88
