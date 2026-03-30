@@ -9,9 +9,12 @@ services:
     volumes:
       # Persist uploaded songs and processed stems between restarts
       - karaoke_data:/data
+      # Persist downloaded AI model weights between image updates
+      - karaoke_models:/models
     environment:
       - DATA_DIR=/data
       - FRONTEND_DIR=/app/frontend
+      - TORCH_HOME=/models
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
@@ -22,4 +25,6 @@ services:
 
 volumes:
   karaoke_data:
+    driver: local
+  karaoke_models:
     driver: local
