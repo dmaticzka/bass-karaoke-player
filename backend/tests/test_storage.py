@@ -97,7 +97,7 @@ class TestSongStorage:
 
     def test_list_songs_skips_corrupt_json(self, storage: SongStorage) -> None:
         """Corrupt meta.json files must be silently ignored."""
-        bad_dir = storage.uploads_dir / "bad-id"
+        bad_dir = storage.songs_dir / "bad-id"
         bad_dir.mkdir()
         (bad_dir / "meta.json").write_text("not-valid-json{{{", encoding="utf-8")
 
@@ -113,11 +113,11 @@ class TestSongStorage:
         """Deleting a song also removes its stems/ and processed/ subdirectories."""
         song = storage.create_song("track.mp3")
 
-        stems_dir = storage.stems_dir / song.id
+        stems_dir = storage.stems_output_dir(song.id)
         stems_dir.mkdir(parents=True)
         (stems_dir / "vocals.wav").write_bytes(b"\x00" * 10)
 
-        proc_dir = storage.processed_dir / song.id
+        proc_dir = storage.processed_output_dir(song.id)
         proc_dir.mkdir(parents=True)
         (proc_dir / "vocals_p0d0_t1d000.wav").write_bytes(b"\x00" * 10)
 

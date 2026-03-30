@@ -35,6 +35,10 @@ class SongStorage:
         """Return the directory where demucs writes stem files."""
         return self._song_dir(song_id) / "stems"
 
+    def processed_output_dir(self, song_id: str) -> Path:
+        """Return the directory where rubberband-processed files are cached."""
+        return self._song_dir(song_id) / "processed"
+
     # ------------------------------------------------------------------
     # Song metadata helpers
     # ------------------------------------------------------------------
@@ -95,7 +99,7 @@ class SongStorage:
             .replace("-", "m")
             .replace(".", "d")
         )
-        proc_dir = self._song_dir(song_id) / "processed"
+        proc_dir = self.processed_output_dir(song_id)
         proc_dir.mkdir(parents=True, exist_ok=True)
         return proc_dir / f"{stem.value}_{tag}.wav"
 
