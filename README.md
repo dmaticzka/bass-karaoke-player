@@ -2,6 +2,9 @@
 
 A web-based music player that lets you split songs into individual stems (voice, bass, drums, other), transpose pitch, adjust tempo, and control per-stem volume — all in your browser.
 
+> [!CAUTION]
+> This project is an experiment in Vibe Coding and in early alpha "works for me" stage.
+
 ## Features
 
 - 🎵 **Stem splitting** – powered by [demucs](https://github.com/adefossez/demucs) (`htdemucs` model)
