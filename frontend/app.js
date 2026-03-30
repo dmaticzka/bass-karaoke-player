@@ -169,7 +169,7 @@ async function deleteSong(id) {
    Upload
    ========================================================================== */
 
-browseBtn.addEventListener("click", () => fileInput.click());
+browseBtn.addEventListener("click", (e) => { e.stopPropagation(); fileInput.click(); });
 fileInput.addEventListener("change", () => {
   if (fileInput.files?.[0]) uploadFile(fileInput.files[0]);
 });
