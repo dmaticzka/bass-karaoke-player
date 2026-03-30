@@ -113,9 +113,9 @@ def _split_song_task(song_id: str) -> None:
         logger.error("split_song_task: song %s not found", song_id)
         return
 
-    upload_dir = storage.uploads_dir / song_id
+    original_dir = storage.original_dir(song_id)
     audio_files = [
-        f for f in upload_dir.iterdir() if f.suffix.lower() in ALLOWED_AUDIO_SUFFIXES
+        f for f in original_dir.iterdir() if f.suffix.lower() in ALLOWED_AUDIO_SUFFIXES
     ]
     if not audio_files:
         storage.update_status(
@@ -124,7 +124,7 @@ def _split_song_task(song_id: str) -> None:
         return
 
     input_path = audio_files[0]
-    stems_out_dir = storage.stems_dir / song_id
+    stems_out_dir = storage.stems_output_dir(song_id)
 
     try:
         stem_map = splitter.split(input_path, stems_out_dir)

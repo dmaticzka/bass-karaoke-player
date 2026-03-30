@@ -1,5 +1,7 @@
 """Tests for Pydantic data models."""
 
+from __future__ import annotations
+
 import pytest
 from backend.app.models import (
     ProcessRequest,

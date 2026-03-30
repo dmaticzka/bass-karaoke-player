@@ -14,25 +14,36 @@ class SongStorage:
 
     def __init__(self, base_dir: Path) -> None:
         self.base_dir = base_dir
-        self.uploads_dir = base_dir / "uploads"
-        self.stems_dir = base_dir / "stems"
-        self.processed_dir = base_dir / "processed"
+        self.songs_dir = base_dir / "songs"
         self._ensure_dirs()
 
     def _ensure_dirs(self) -> None:
-        for d in (self.uploads_dir, self.stems_dir, self.processed_dir):
-            d.mkdir(parents=True, exist_ok=True)
+        self.songs_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Song directory helpers
+    # ------------------------------------------------------------------
+
+    def _song_dir(self, song_id: str) -> Path:
+        return self.songs_dir / song_id
+
+    def original_dir(self, song_id: str) -> Path:
+        """Return the directory that holds the original uploaded file."""
+        return self._song_dir(song_id) / "original"
+
+    def stems_output_dir(self, song_id: str) -> Path:
+        """Return the directory where demucs writes stem files."""
+        return self._song_dir(song_id) / "stems"
 
     # ------------------------------------------------------------------
     # Song metadata helpers
     # ------------------------------------------------------------------
 
     def _meta_path(self, song_id: str) -> Path:
-        return self.uploads_dir / song_id / "meta.json"
+        return self._song_dir(song_id) / "meta.json"
 
     def save_song(self, song: Song) -> None:
-        song_dir = self.uploads_dir / song.id
-        song_dir.mkdir(parents=True, exist_ok=True)
+        self._song_dir(song.id).mkdir(parents=True, exist_ok=True)
         self._meta_path(song.id).write_text(song.model_dump_json(), encoding="utf-8")
 
     def load_song(self, song_id: str) -> Song | None:
@@ -43,7 +54,7 @@ class SongStorage:
 
     def list_songs(self) -> list[Song]:
         songs: list[Song] = []
-        for meta in sorted(self.uploads_dir.glob("*/meta.json")):
+        for meta in sorted(self.songs_dir.glob("*/meta.json")):
             try:
                 songs.append(Song.model_validate_json(meta.read_text(encoding="utf-8")))
             except (json.JSONDecodeError, ValueError):
@@ -53,16 +64,10 @@ class SongStorage:
     def delete_song(self, song_id: str) -> bool:
         import shutil
 
-        song_dir = self.uploads_dir / song_id
+        song_dir = self._song_dir(song_id)
         if not song_dir.exists():
             return False
         shutil.rmtree(song_dir, ignore_errors=True)
-        stems_dir = self.stems_dir / song_id
-        if stems_dir.exists():
-            shutil.rmtree(stems_dir, ignore_errors=True)
-        processed_dir = self.processed_dir / song_id
-        if processed_dir.exists():
-            shutil.rmtree(processed_dir, ignore_errors=True)
         return True
 
     # ------------------------------------------------------------------
@@ -70,12 +75,12 @@ class SongStorage:
     # ------------------------------------------------------------------
 
     def upload_path(self, song_id: str, filename: str) -> Path:
-        song_dir = self.uploads_dir / song_id
-        song_dir.mkdir(parents=True, exist_ok=True)
-        return song_dir / filename
+        orig_dir = self.original_dir(song_id)
+        orig_dir.mkdir(parents=True, exist_ok=True)
+        return orig_dir / filename
 
     def stem_path(self, song_id: str, stem: StemName) -> Path:
-        return self.stems_dir / song_id / f"{stem.value}.wav"
+        return self.stems_output_dir(song_id) / f"{stem.value}.wav"
 
     def processed_path(
         self,
@@ -90,7 +95,7 @@ class SongStorage:
             .replace("-", "m")
             .replace(".", "d")
         )
-        proc_dir = self.processed_dir / song_id
+        proc_dir = self._song_dir(song_id) / "processed"
         proc_dir.mkdir(parents=True, exist_ok=True)
         return proc_dir / f"{stem.value}_{tag}.wav"
 

@@ -18,9 +18,7 @@ class TestSongStorage:
     def test_directories_created_on_init(self, tmp_path: Path) -> None:
         base = tmp_path / "mydata"
         store = SongStorage(base)
-        assert store.uploads_dir.exists()
-        assert store.stems_dir.exists()
-        assert store.processed_dir.exists()
+        assert store.songs_dir.exists()
 
     def test_create_and_load_song(self, storage: SongStorage) -> None:
         song = storage.create_song("my_song.mp3")
@@ -77,6 +75,7 @@ class TestSongStorage:
         path = storage.stem_path("song123", StemName.VOCALS)
         assert path.name == "vocals.wav"
         assert "song123" in str(path)
+        assert "stems" in str(path)
 
     def test_processed_path_unique_per_params(self, storage: SongStorage) -> None:
         p1 = storage.processed_path("s1", StemName.BASS, 0.0, 1.0)
@@ -90,6 +89,7 @@ class TestSongStorage:
         path = storage.upload_path("song999", "track.mp3")
         assert path.parent.exists()
         assert path.name == "track.mp3"
+        assert "original" in str(path)
 
     def test_new_song_id_is_unique(self, storage: SongStorage) -> None:
         ids = {storage.new_song_id() for _ in range(100)}
