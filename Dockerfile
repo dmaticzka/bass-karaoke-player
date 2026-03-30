@@ -16,7 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+# Pre-install CPU-only PyTorch stack to avoid CUDA runtime library dependencies
+# (e.g. libnppicc.so) that are absent in the slim runtime image.
+RUN pip install --no-cache-dir --prefix=/install \
+        torch torchaudio torchcodec \
+        --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
