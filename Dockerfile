@@ -16,12 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
-# Pre-install CPU-only PyTorch stack to avoid CUDA runtime library dependencies
-# (e.g. libnppicc.so) that are absent in the slim runtime image.
-RUN pip install --no-cache-dir --prefix=/install \
-        torch torchaudio torchcodec \
-        --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
@@ -44,6 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
+
+# Register the NVIDIA CUDA library directory with the dynamic linker so that
+# torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the
+# nvidia-npp Python package.
+RUN python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
+        > /etc/ld.so.conf.d/nvidia-cu13.conf \
+    && ldconfig
 
 # Copy application source
 WORKDIR /app

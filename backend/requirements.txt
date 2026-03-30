@@ -5,3 +5,4 @@ aiofiles>=23.2.1
 pydantic>=2.7.0
 demucs>=4.0.1
 torchcodec>=0.9.0
+nvidia-npp>=13.0.1.2
