@@ -1,0 +1,177 @@
+name: Smoke Tests
+
+# Runs nightly, on every release tag, and on manual dispatch.
+# Builds the Docker image, starts a container, and exercises the full stack
+# including real demucs stem splitting and rubberband audio processing.
+on:
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC every day
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: bass-karaoke-player:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: runtime
+
+      - name: Start container
+        run: |
+          docker run -d \
+            --name app \
+            -p 8000:8000 \
+            -e DATA_DIR=/data \
+            -e FRONTEND_DIR=/app/frontend \
+            bass-karaoke-player:smoke
+
+      - name: Wait for server to become healthy
+        run: |
+          echo "Waiting for server startup…"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/health > /dev/null; then
+              echo "Server is ready (attempt $i)"
+              break
+            fi
+            sleep 2
+          done
+          curl -f http://localhost:8000/api/health
+
+      - name: Smoke – health endpoint
+        run: |
+          RESP=$(curl -sf http://localhost:8000/api/health)
+          echo "$RESP"
+          python3 -c "
+          import sys, json
+          d = json.loads('$RESP')
+          assert d['status'] == 'ok', f'unexpected status: {d}'
+          print('OK')
+          "
+
+      - name: Smoke – song list (initially empty)
+        run: |
+          RESP=$(curl -sf http://localhost:8000/api/songs)
+          echo "$RESP"
+          python3 -c "
+          import sys, json
+          d = json.loads('$RESP')
+          assert 'songs' in d, 'missing songs key'
+          print('OK')
+          "
+
+      - name: Generate test audio fixture (3 s silent stereo WAV)
+        run: python3 e2e/fixtures/generate_wav.py /tmp/smoke_test.wav 3.0
+
+      - name: Smoke – upload audio file
+        run: |
+          RESP=$(curl -sf -F "file=@/tmp/smoke_test.wav" http://localhost:8000/api/songs)
+          echo "$RESP"
+          SONG_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          INITIAL_STATUS=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+          echo "SONG_ID=$SONG_ID" >> "$GITHUB_ENV"
+          echo "Song ID: $SONG_ID  |  Initial status: $INITIAL_STATUS"
+          [ "$INITIAL_STATUS" = "splitting" ] || {
+            echo "Expected status 'splitting', got: $INITIAL_STATUS"
+            exit 1
+          }
+
+      - name: Smoke – get song by ID
+        run: |
+          RESP=$(curl -sf "http://localhost:8000/api/songs/$SONG_ID")
+          echo "$RESP"
+          python3 -c "
+          import sys, json
+          d = json.loads('$RESP')
+          assert d['id'] == '$SONG_ID', 'id mismatch'
+          print('OK')
+          "
+
+      - name: Smoke – wait for stem splitting (demucs)
+        run: |
+          echo "Polling for status=ready (demucs runs on CPU; allow up to 10 min)…"
+          STATUS="splitting"
+          for i in $(seq 1 60); do
+            STATUS=$(curl -sf "http://localhost:8000/api/songs/$SONG_ID" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+            echo "Attempt $i/60: status=$STATUS"
+            if [ "$STATUS" = "ready" ]; then
+              echo "Stems are ready!"
+              break
+            elif [ "$STATUS" = "error" ]; then
+              echo "Stem splitting reported an error:"
+              curl -sf "http://localhost:8000/api/songs/$SONG_ID"
+              docker logs app
+              exit 1
+            fi
+            sleep 10
+          done
+          [ "$STATUS" = "ready" ] || {
+            echo "Timed out waiting for stems after 10 minutes"
+            docker logs app
+            exit 1
+          }
+
+      - name: Smoke – retrieve each stem
+        run: |
+          for STEM in vocals bass drums other; do
+            echo "Fetching stem: $STEM"
+            curl -f "http://localhost:8000/api/songs/$SONG_ID/stems/$STEM" \
+              -o "/tmp/${STEM}.wav"
+            SIZE=$(wc -c < "/tmp/${STEM}.wav")
+            echo "  $STEM: ${SIZE} bytes"
+            [ "$SIZE" -gt 0 ] || { echo "Empty stem file for $STEM"; exit 1; }
+          done
+
+      - name: Smoke – process a stem with rubberband (pitch −2, tempo 0.9)
+        run: |
+          RESP=$(curl -sf -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"pitch_semitones": -2.0, "tempo_ratio": 0.9}' \
+            "http://localhost:8000/api/songs/$SONG_ID/stems/vocals/process")
+          echo "$RESP"
+          python3 -c "
+          import sys, json
+          d = json.loads('$RESP')
+          assert d['stem'] == 'vocals', 'unexpected stem'
+          assert d['pitch_semitones'] == -2.0
+          assert d['tempo_ratio'] == 0.9
+          print('OK')
+          "
+
+      - name: Smoke – delete song
+        run: |
+          curl -sf -X DELETE "http://localhost:8000/api/songs/$SONG_ID"
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "http://localhost:8000/api/songs/$SONG_ID")
+          echo "Status after delete: $STATUS_CODE"
+          [ "$STATUS_CODE" = "404" ] || {
+            echo "Expected 404 after delete, got: $STATUS_CODE"
+            exit 1
+          }
+          echo "Song successfully deleted."
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f app || true
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs app 2>/dev/null || true
