@@ -46,6 +46,13 @@ COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 COPY pyproject.toml ./
 
+# Pre-download the htdemucs model weights into the image so that demucs never
+# needs internet access at runtime (avoids failures in environments with custom
+# TLS certificates or no outbound connectivity).
+RUN TORCH_HOME=/opt/torch_cache \
+    python -c "from demucs.pretrained import get_model; get_model('htdemucs')" \
+    && chmod -R a+rX /opt/torch_cache
+
 # Create data directory
 RUN mkdir -p /data/uploads /data/stems /data/processed
 
@@ -55,6 +62,7 @@ USER player
 
 ENV DATA_DIR=/data \
     FRONTEND_DIR=/app/frontend \
+    TORCH_HOME=/opt/torch_cache \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
