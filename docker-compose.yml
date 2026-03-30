@@ -3,19 +3,18 @@ services:
     # Use the pre-built image from GitHub Container Registry (ghcr.io).
     # To build locally instead, run: docker compose up --build
     image: ghcr.io/dmaticzka/bass-karaoke-player:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runtime
     container_name: bass-karaoke-player
     ports:
       - "8000:8000"
     volumes:
       # Persist uploaded songs and processed stems between restarts
       - karaoke_data:/data
+      # Persist downloaded AI model weights between image updates
+      - karaoke_models:/models
     environment:
       - DATA_DIR=/data
       - FRONTEND_DIR=/app/frontend
+      - TORCH_HOME=/models
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
@@ -26,4 +25,6 @@ services:
 
 volumes:
   karaoke_data:
+    driver: local
+  karaoke_models:
     driver: local
