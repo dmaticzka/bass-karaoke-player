@@ -11,7 +11,7 @@
     },
     {
       "description": "Combine all Python backend dependency updates into a single PR",
-      "matchManagers": ["pep621"],
+      "matchManagers": ["uv"],
       "groupName": "Python backend dependencies"
     }
   ]

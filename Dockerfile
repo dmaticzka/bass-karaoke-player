@@ -15,8 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+# Install uv for fast, reproducible dependency installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Copy dependency manifests first (Docker cache layer)
+COPY pyproject.toml uv.lock ./
+
+# Install production dependencies (including gpu extras) using the locked versions.
+# --no-install-project skips installing the project itself (not needed at runtime).
+# UV_SYSTEM_PYTHON=1 installs into the system Python so the runtime stage can COPY --from=builder.
+RUN UV_SYSTEM_PYTHON=1 uv sync --frozen --no-dev --extra gpu --no-install-project
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
@@ -38,7 +46,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder
-COPY --from=builder /install /usr/local
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Register the NVIDIA CUDA library directory with the dynamic linker so that
 # torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the

@@ -31,18 +31,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: pyproject.toml
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
 
       - name: Install dev dependencies
-        run: pip install -r backend/requirements-dev.txt
+        run: uv sync --frozen --group dev
 
       - name: Run tests before release
-        run: pytest backend/tests/ -v
+        run: uv run pytest backend/tests/ -v
         env:
           PYTHONPATH: .
 

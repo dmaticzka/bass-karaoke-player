@@ -56,11 +56,11 @@ open http://localhost:8000
 
 ```bash
 # Install Python dependencies
-pip install -r backend/requirements.txt
+uv sync
 
 # Start the server
 FRONTEND_DIR=frontend DATA_DIR=data \
-  uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+  uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Open in your browser
 open http://localhost:8000
@@ -101,14 +101,14 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ```bash
 # Install dev dependencies
-pip install -r backend/requirements-dev.txt
+uv sync --group dev
 
 # Run tests
-pytest backend/tests/ -v
+uv run pytest backend/tests/ -v
 
 # Lint & format check
-ruff check backend/
-ruff format --check backend/
+uv run ruff check backend/
+uv run ruff format --check backend/
 ```
 
 ### Project structure
@@ -127,8 +127,6 @@ bass-karaoke-player/
 │   │   ├── test_audio_processor.py
 │   │   ├── test_models.py
 │   │   └── test_storage.py
-│   ├── requirements.txt
-│   └── requirements-dev.txt
 ├── frontend/
 │   ├── index.html
 │   ├── style.css
