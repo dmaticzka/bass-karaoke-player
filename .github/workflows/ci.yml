@@ -68,6 +68,34 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: pyproject.toml
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dev dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: pytest e2e/ -v --no-cov
+        env:
+          PYTHONPATH: .
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
