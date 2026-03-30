@@ -494,7 +494,7 @@ applyBtn.addEventListener("click", async () => {
     alert(`Processing failed: ${e.message}`);
   } finally {
     applyBtn.disabled = false;
-    applyBtn.textContent = "Apply Pitch & Tempo";
+    applyBtn.textContent = "Apply";
   }
 });
 

@@ -48,7 +48,7 @@
         <div class="control-group">
           <label for="pitch-slider">Pitch (semitones)</label>
           <div class="slider-row">
-            <input type="range" id="pitch-slider" min="-12" max="12" step="0.5" value="0" />
+            <input type="range" id="pitch-slider" min="-12" max="12" step="1" value="0" />
             <output id="pitch-value">0</output>
           </div>
         </div>
@@ -56,13 +56,13 @@
         <div class="control-group">
           <label for="tempo-slider">Tempo (%)</label>
           <div class="slider-row">
-            <input type="range" id="tempo-slider" min="25" max="400" step="5" value="100" />
+            <input type="range" id="tempo-slider" min="25" max="200" step="5" value="100" />
             <output id="tempo-value">100%</output>
           </div>
         </div>
 
-        <div class="control-group">
-          <button class="btn btn-primary" id="apply-btn">Apply Pitch &amp; Tempo</button>
+        <div class="control-group control-group--actions">
+          <button class="btn btn-primary" id="apply-btn">Apply</button>
           <button class="btn btn-secondary" id="reset-btn">Reset</button>
         </div>
       </div>
