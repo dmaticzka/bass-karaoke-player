@@ -51,17 +51,18 @@ open http://localhost:8000
 ### Without Docker
 
 **Prerequisites:**
-- Python ≥ 3.10
+- Python ≥ 3.14
+- [uv](https://docs.astral.sh/uv/) package manager
 - [rubberband](https://github.com/breakfastquay/rubberband) CLI (`rubberband` command)
 - ffmpeg (required by demucs)
 
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
+uv sync
 
 # Start the server
 FRONTEND_DIR=frontend DATA_DIR=data \
-  uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+  uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Open in your browser
 open http://localhost:8000
@@ -102,14 +103,14 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ```bash
 # Install dev dependencies
-pip install -r requirements-dev.txt
+uv sync --group dev
 
 # Run tests
-pytest backend/tests/ -v
+uv run pytest backend/tests/ -v
 
 # Lint & format check
-ruff check backend/
-ruff format --check backend/
+uv run ruff check backend/
+uv run ruff format --check backend/
 ```
 
 ### Project structure

@@ -31,16 +31,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: pip install --no-cache-dir -r requirements-dev.txt
+        run: uv sync --group dev --frozen
 
       - name: Run tests before release
-        run: pytest backend/tests/ -v
+        run: uv run pytest backend/tests/ -v
         env:
           PYTHONPATH: .
 

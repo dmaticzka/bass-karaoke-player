@@ -3,24 +3,28 @@
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: builder – install Python dependencies
+# Stage 1: builder – install Python dependencies into a virtual environment
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim AS builder
 
-WORKDIR /build
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install build dependencies
+WORKDIR /app
+
+# Install build dependencies (needed for compiled extension packages)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy locked dependency manifest first (Docker cache layer)
-COPY requirements-docker.txt ./
+# Copy locked dependency manifests first (Docker cache layer)
+COPY pyproject.toml uv.lock ./
 
-# Install production dependencies (including gpu extras) using the locked versions.
-# pip installs into the system Python so the runtime stage can COPY --from=builder.
-RUN pip install --no-cache-dir -r requirements-docker.txt
+# Install production dependencies (including gpu extras) into /app/.venv.
+# --frozen: use uv.lock as-is; --no-dev: skip dev group; --no-install-project:
+# skip installing the app itself (it runs from source via PYTHONPATH).
+RUN uv sync --frozen --no-dev --extra gpu --no-install-project
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
@@ -41,14 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder
-COPY --from=builder /usr/local/lib /usr/local/lib
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy the virtual environment from the builder stage
+COPY --from=builder /app/.venv /app/.venv
 
 # Register the NVIDIA CUDA library directory with the dynamic linker so that
 # torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the
 # nvidia-npp Python package.
-RUN python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
+RUN /app/.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
         > /etc/ld.so.conf.d/nvidia-cu13.conf \
     && ldconfig
 
@@ -65,7 +68,9 @@ RUN mkdir -p /data/uploads /data/stems /data/processed /models
 RUN useradd -m -u 1000 player && chown -R player:player /app /data /models
 USER player
 
-ENV DATA_DIR=/data \
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH" \
+    DATA_DIR=/data \
     FRONTEND_DIR=/app/frontend \
     TORCH_HOME=/models \
     PYTHONUNBUFFERED=1 \
