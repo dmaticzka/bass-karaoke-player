@@ -74,8 +74,10 @@
 
       <!-- Playback Controls -->
       <div class="playback-controls">
-        <button class="btn btn-primary btn-lg" id="play-pause-btn">▶ Play All</button>
-        <button class="btn btn-secondary" id="stop-btn">■ Stop</button>
+        <div class="playback-buttons">
+          <button class="btn btn-primary btn-lg" id="play-pause-btn" aria-label="Play all stems">▶ Play All</button>
+          <button class="btn btn-secondary btn-lg" id="stop-btn" aria-label="Stop playback">■ Stop</button>
+        </div>
         <div class="seek-row">
           <input type="range" id="seek-slider" min="0" max="100" step="0.1" value="0" />
           <span id="time-display">0:00 / 0:00</span>

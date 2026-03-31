@@ -21,6 +21,9 @@
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   --transition: 0.2s ease;
 
+  /* Minimum touch target size (WCAG 2.5.5) */
+  --touch-target: 44px;
+
   /* Stem colours */
   --stem-drums: #f97316;
   --stem-bass:  #3b82f6;
@@ -32,6 +35,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
@@ -56,7 +60,7 @@ a:hover { text-decoration: underline; }
 }
 
 .app-header h1 { font-size: 1.75rem; letter-spacing: 0.03em; }
-.subtitle { color: var(--color-muted); font-size: 0.85rem; margin-top: 0.2rem; }
+.subtitle { color: var(--color-muted); font-size: 0.9rem; margin-top: 0.2rem; }
 
 .container {
   max-width: 900px;
@@ -72,7 +76,7 @@ footer {
   text-align: center;
   padding: 1rem;
   color: var(--color-muted);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   border-top: 1px solid var(--color-border);
 }
 
@@ -86,7 +90,7 @@ footer {
 }
 
 .card h2 {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   margin-bottom: 1rem;
   color: var(--color-accent);
   display: flex;
@@ -103,25 +107,32 @@ footer {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.5rem 1.2rem;
+  padding: 0.625rem 1.4rem;
+  min-height: var(--touch-target);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
   transition: opacity var(--transition), transform var(--transition);
+  touch-action: manipulation;
 }
 .btn:hover { opacity: 0.85; transform: translateY(-1px); }
 .btn:active { opacity: 1; transform: none; }
 .btn-primary  { background: var(--color-accent); color: #fff; }
 .btn-secondary { background: var(--color-accent2); color: #fff; }
-.btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
-.btn-lg { padding: 0.75rem 2rem; font-size: 1rem; }
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+}
+.btn-lg { padding: 0.875rem 2.5rem; font-size: 1.1rem; }
 .btn-icon {
   background: transparent;
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 0.75rem;
 }
 
 /* ---------- Upload area ---------- */
@@ -138,7 +149,7 @@ footer {
   background: rgba(233, 69, 96, 0.05);
 }
 .upload-area p { margin-bottom: 0.5rem; color: var(--color-muted); }
-.upload-area .hint { font-size: 0.8rem; }
+.upload-area .hint { font-size: 0.85rem; }
 
 .upload-progress { margin-top: 1rem; display: flex; align-items: center; gap: 0.75rem; }
 .upload-progress progress { flex: 1; height: 8px; border-radius: 4px; }
@@ -155,21 +166,28 @@ footer {
 .song-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   padding: 0.75rem 1rem;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  gap: 0.75rem;
+  gap: 0.5rem 0.75rem;
   transition: border-color var(--transition);
 }
 .song-item:hover { border-color: var(--color-accent); }
 .song-item.active { border-color: var(--color-accent); background: rgba(233,69,96,0.08); }
 
-.song-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.song-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
 .song-status-badge {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 20px;
   font-weight: 600;
   white-space: nowrap;
@@ -179,50 +197,66 @@ footer {
 .status-ready     { background: #166534; color: #dcfce7; }
 .status-error     { background: #7f1d1d; color: #fee2e2; }
 
-.song-actions { display: flex; gap: 0.4rem; }
+.song-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
 
 /* ---------- Global Controls ---------- */
 .global-controls {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0.75rem 1rem;
+  flex-direction: column;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--color-border);
-  align-items: flex-end;
-  overflow-x: auto;
 }
 
-.control-group { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 110px; }
-.control-group label { font-size: 0.8rem; color: var(--color-muted); font-weight: 600; white-space: nowrap; }
+.control-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.control-group label { font-size: 0.9rem; color: var(--color-muted); font-weight: 600; }
 .control-group--actions {
-  flex: 0 0 auto;
   flex-direction: row;
-  align-items: flex-end;
-  min-width: auto;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
 }
-.slider-row { display: flex; align-items: center; gap: 0.4rem; }
-.slider-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--color-accent); }
-.slider-row output { min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.85rem; flex-shrink: 0; }
+.slider-row { display: flex; align-items: center; gap: 0.6rem; }
+.slider-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--color-accent);
+  height: 6px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.slider-row output {
+  min-width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
 
 /* ---------- Stems Grid ---------- */
 /* htdemucs always produces exactly 4 stems: drums, bass, vocals, other */
 .stems-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+@media (min-width: 600px) {
+  .stems-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .stem-card {
   background: var(--color-bg);
   border-radius: var(--radius);
-  padding: 0.75rem;
+  padding: 1rem;
   border: 2px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   transition: border-color var(--transition);
   min-width: 0;
   overflow: hidden;
@@ -236,45 +270,99 @@ footer {
 }
 .stem-label {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: var(--stem-color, var(--color-text));
   text-transform: capitalize;
 }
 .stem-mute-btn {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
+  font-size: 1rem;
+  padding: 0.3rem 0.6rem;
 }
 .stem-mute-btn.muted { opacity: 0.5; }
 
-.stem-volume-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; }
-.stem-volume-row input[type="range"] { flex: 1; min-width: 0; }
-.stem-volume-row output { min-width: 2.5rem; text-align: right; flex-shrink: 0; }
+.stem-volume-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.stem-volume-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--stem-color, var(--color-accent));
+  height: 6px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.stem-volume-row output { min-width: 2.75rem; text-align: right; flex-shrink: 0; }
 
 /* ---------- Playback Controls ---------- */
 .playback-controls {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.playback-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.playback-buttons .btn {
+  flex: 1;
 }
 
 .seek-row {
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  min-width: 200px;
 }
-.seek-row input[type="range"] { flex: 1; accent-color: var(--color-accent); }
-#time-display { font-size: 0.85rem; color: var(--color-muted); white-space: nowrap; }
+.seek-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--color-accent);
+  height: 6px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+#time-display { font-size: 0.9rem; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }
 
-/* ---------- Responsive ---------- */
-@media (max-width: 600px) {
-  .app-header { margin: 0.75rem auto 0; width: calc(100% - 1rem); padding: 1rem; }
-  .app-header h1 { font-size: 1.3rem; }
-  .subtitle { font-size: 0.75rem; }
-  .global-controls { gap: 0.5rem; }
-  .control-group { min-width: 90px; }
-  .playback-controls { flex-wrap: wrap; }
-  .seek-row { flex: 1 1 100%; min-width: unset; }
+/* ---------- Responsive – wider screens ---------- */
+@media (min-width: 600px) {
+  .global-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .control-group {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .control-group--actions {
+    flex: 0 0 auto;
+    min-width: auto;
+    margin-top: 0;
+    align-items: flex-end;
+  }
+
+  .playback-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .playback-buttons {
+    flex: 0 0 auto;
+  }
+
+  .playback-buttons .btn {
+    flex: unset;
+  }
+
+  .seek-row {
+    flex: 1;
+    min-width: 200px;
+  }
 }
