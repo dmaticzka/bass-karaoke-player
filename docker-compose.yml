@@ -3,6 +3,9 @@ services:
     # Use the pre-built image from GitHub Container Registry (ghcr.io).
     # To build locally instead, run: docker compose up --build
     image: ghcr.io/dmaticzka/bass-karaoke-player:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: bass-karaoke-player
     ports:
       - "8000:8000"
