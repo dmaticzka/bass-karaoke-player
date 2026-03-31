@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main", "develop"]
   pull_request:
     branches: ["main", "develop"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -15,26 +19,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: uv sync --frozen --group dev
+        run: pip install --no-cache-dir -r requirements-dev.txt
 
       - name: Run ruff (lint + format check)
         run: |
-          uv run ruff check backend/
-          uv run ruff format --check backend/
+          ruff check backend/
+          ruff format --check backend/
 
       - name: Run mypy
-        run: uv run mypy backend/app/ --ignore-missing-imports
+        run: mypy backend/app/ --ignore-missing-imports
 
   test:
     name: Tests
@@ -45,22 +44,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: uv sync --frozen --group dev
+        run: pip install --no-cache-dir -r requirements-dev.txt
 
       - name: Run pytest
         run: |
-          uv run pytest backend/tests/ \
+          pytest backend/tests/ \
             --cov=backend/app \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
@@ -84,24 +78,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: uv sync --frozen --group dev
+        run: pip install --no-cache-dir -r requirements-dev.txt
 
       - name: Install Playwright browsers
-        run: uv run playwright install --with-deps chromium
+        run: playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: uv run pytest e2e/ -v --no-cov
+        run: pytest e2e/ -v --no-cov
         env:
           PYTHONPATH: .
 

@@ -57,11 +57,11 @@ open http://localhost:8000
 
 ```bash
 # Install Python dependencies
-uv sync
+pip install -r requirements.txt
 
 # Start the server
 FRONTEND_DIR=frontend DATA_DIR=data \
-  uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+  uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Open in your browser
 open http://localhost:8000
@@ -102,14 +102,14 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ```bash
 # Install dev dependencies
-uv sync --group dev
+pip install -r requirements-dev.txt
 
 # Run tests
-uv run pytest backend/tests/ -v
+pytest backend/tests/ -v
 
 # Lint & format check
-uv run ruff check backend/
-uv run ruff format --check backend/
+ruff check backend/
+ruff format --check backend/
 ```
 
 ### Project structure
