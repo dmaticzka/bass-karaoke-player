@@ -160,7 +160,7 @@ nvidia-cufile==1.15.1.6
     # via
     #   -r requirements.txt
     #   cuda-toolkit
-nvidia-curand==10.4.0.35
+nvidia-curand==10.4.2.51
     # via
     #   -r requirements.txt
     #   cuda-toolkit
