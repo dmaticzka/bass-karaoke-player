@@ -232,12 +232,12 @@ def _song_router() -> APIRouter:
     @router.get(
         "/songs/{song_id}/stems/{stem_name}",
         responses={
-            200: {"content": {"audio/wav": {}}},
+            200: {"content": {"audio/mpeg": {}}},
             404: {"model": ErrorResponse},
         },
     )
     async def get_stem(song_id: str, stem_name: str) -> FileResponse:
-        """Stream an unprocessed stem WAV file."""
+        """Stream an unprocessed stem MP3 file."""
         song = _require_ready_song(song_id)
         stem = _parse_stem(stem_name)
         if stem not in song.stems:
@@ -247,7 +247,7 @@ def _song_router() -> APIRouter:
         path = storage.stem_path(song_id, stem)
         if not path.exists():
             raise HTTPException(status_code=404, detail="Stem file missing on disk.")
-        return FileResponse(path, media_type="audio/wav")
+        return FileResponse(path, media_type="audio/mpeg")
 
     @router.post(
         "/songs/{song_id}/stems/{stem_name}/process",
@@ -301,7 +301,7 @@ def _song_router() -> APIRouter:
     @router.get(
         "/songs/{song_id}/stems/{stem_name}/processed",
         responses={
-            200: {"content": {"audio/wav": {}}},
+            200: {"content": {"audio/mpeg": {}}},
             404: {"model": ErrorResponse},
         },
     )
@@ -336,7 +336,7 @@ def _song_router() -> APIRouter:
             except AudioProcessorError as exc:
                 raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-        return FileResponse(output_path, media_type="audio/wav")
+        return FileResponse(output_path, media_type="audio/mpeg")
 
     @router.get("/health")
     async def health() -> dict[str, str]:

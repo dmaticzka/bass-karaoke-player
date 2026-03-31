@@ -7,10 +7,11 @@ A web-based music player that lets you split songs into individual stems (voice,
 
 ## Features
 
-- 🎵 **Stem splitting** – powered by [demucs](https://github.com/adefossez/demucs) (`htdemucs` model)
-- 🎹 **Pitch transposition** – shift songs up/down by up to ±12 semitones via [rubberband](https://github.com/breakfastquay/rubberband)
+- 🎵 **Stem splitting** – powered by [demucs](https://github.com/adefossez/demucs) (`mdx` model, MP3 output)
+- 🎹 **Pitch transposition** – shift songs up/down by up to ±12 semitones via [rubberband](https://github.com/breakfastquay/rubberband) (with `--threads --fine --formant --centre-focus` for best quality)
 - ⏩ **Tempo control** – slow down or speed up (25%–400%) without changing pitch
 - 🎚️ **Per-stem volume mixing** – independently adjust volume for drums, bass, vocals, and other instruments
+- 💾 **MP3 throughout** – stems and processed files are stored as MP3 to save disk space and improve responsiveness
 - 🌐 **Web interface** – clean, responsive UI; no native app required
 - 🐳 **Docker** – single-command deployment
 
@@ -73,7 +74,7 @@ open http://localhost:8000
 3. **Load the song** – click "Load" once the status shows "Ready"
 4. **Adjust controls:**
    - **Pitch** slider: shift semitones (−12 to +12)
-   - **Tempo** slider: speed percentage (25%–400%)
+   - **Tempo** slider: speed percentage (25%–200%)
    - Click **Apply Pitch & Tempo** to trigger rubberband processing
    - Each stem card has an individual **volume** slider and **mute** button
 5. Click **▶ Play All** to start playback
@@ -89,9 +90,9 @@ The backend exposes a REST API:
 | `POST` | `/api/songs` | Upload a new song (multipart form) |
 | `GET`  | `/api/songs/{id}` | Get song metadata |
 | `DELETE` | `/api/songs/{id}` | Delete a song |
-| `GET`  | `/api/songs/{id}/stems/{stem}` | Stream raw stem WAV |
+| `GET`  | `/api/songs/{id}/stems/{stem}` | Stream raw stem MP3 |
 | `POST` | `/api/songs/{id}/stems/{stem}/process` | Apply pitch/tempo via rubberband |
-| `GET`  | `/api/songs/{id}/stems/{stem}/processed?pitch=&tempo=` | Stream processed stem |
+| `GET`  | `/api/songs/{id}/stems/{stem}/processed?pitch=&tempo=` | Stream processed stem MP3 |
 
 Interactive API docs are available at `http://localhost:8000/docs`.
 

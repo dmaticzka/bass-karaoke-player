@@ -73,7 +73,7 @@ class TestSongStorage:
 
     def test_stem_path(self, storage: SongStorage) -> None:
         path = storage.stem_path("song123", StemName.VOCALS)
-        assert path.name == "vocals.wav"
+        assert path.name == "vocals.mp3"
         assert "song123" in str(path)
         assert "stems" in str(path)
 
@@ -115,11 +115,11 @@ class TestSongStorage:
 
         stems_dir = storage.stems_output_dir(song.id)
         stems_dir.mkdir(parents=True)
-        (stems_dir / "vocals.wav").write_bytes(b"\x00" * 10)
+        (stems_dir / "vocals.mp3").write_bytes(b"\x00" * 10)
 
         proc_dir = storage.processed_output_dir(song.id)
         proc_dir.mkdir(parents=True)
-        (proc_dir / "vocals_p0d0_t1d000.wav").write_bytes(b"\x00" * 10)
+        (proc_dir / "vocals_p0d0_t1d000.mp3").write_bytes(b"\x00" * 10)
 
         result = storage.delete_song(song.id)
         assert result is True

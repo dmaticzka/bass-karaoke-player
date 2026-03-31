@@ -75,7 +75,7 @@ def ready_song_id(e2e_data_dir: Path) -> str:
 
     The fixture creates:
     - ``original/test_song.mp3``  – placeholder bytes
-    - ``stems/{vocals,bass,drums,other}.wav``  – tiny silent WAVs
+    - ``stems/{vocals,bass,drums,other}.mp3``  – tiny silent placeholder files
     - processed stems for the identity transform (pitch=0, tempo=1.0),
       derived via ``SongStorage.processed_path()`` — the authoritative
       path logic lives in ``backend/app/storage.py``.
