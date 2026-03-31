@@ -18,6 +18,7 @@ services:
       - DATA_DIR=/data
       - FRONTEND_DIR=/app/frontend
       - TORCH_HOME=/models
+      - DEMUCS_JOBS=4
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]

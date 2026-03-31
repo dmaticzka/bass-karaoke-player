@@ -61,7 +61,7 @@ open http://localhost:8000
 uv sync
 
 # Start the server
-FRONTEND_DIR=frontend DATA_DIR=data \
+FRONTEND_DIR=frontend DATA_DIR=data DEMUCS_JOBS=4 \
   uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Open in your browser
@@ -79,6 +79,17 @@ open http://localhost:8000
    - Click **Apply Pitch & Tempo** to trigger rubberband processing
    - Each stem card has an individual **volume** slider and **mute** button
 5. Click **▶ Play All** to start playback
+
+## Configuration
+
+The following environment variables control the application's behaviour:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATA_DIR` | `data` | Directory used to store uploaded songs, stems, and processed files |
+| `FRONTEND_DIR` | `frontend` | Directory from which the frontend static files are served |
+| `DEMUCS_JOBS` | `4` | Number of parallel CPU jobs used by demucs for stem splitting |
+| `TORCH_HOME` | *(PyTorch default)* | Cache directory for PyTorch / demucs model weights |
 
 ## API Reference
 

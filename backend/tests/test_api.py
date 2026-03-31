@@ -364,6 +364,19 @@ class TestLifespan:
         assert resp.status_code == 200
         assert isinstance(main_module.storage, SongStorage)
 
+    def test_lifespan_passes_demucs_jobs_to_splitter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DEMUCS_JOBS env var is forwarded to StemSplitter."""
+        import backend.app.main as main_module
+
+        monkeypatch.setattr(main_module, "DATA_DIR", tmp_path / "data")
+        monkeypatch.setattr(main_module, "DEMUCS_JOBS", 8)
+        app = create_app()
+        with TestClient(app) as client:
+            client.get("/api/health")
+        assert main_module.splitter.jobs == 8
+
 
 # ---------------------------------------------------------------------------
 # Upload edge cases
