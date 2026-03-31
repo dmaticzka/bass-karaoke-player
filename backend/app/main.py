@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
 FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend"))
+DEMUCS_JOBS = int(os.getenv("DEMUCS_JOBS", "4"))
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
 
@@ -54,7 +55,7 @@ processor: RubberbandProcessor
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     global storage, splitter, processor  # noqa: PLW0603
     storage = SongStorage(DATA_DIR)
-    splitter = StemSplitter()
+    splitter = StemSplitter(jobs=DEMUCS_JOBS)
     processor = RubberbandProcessor()
     yield
 
