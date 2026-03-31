@@ -16,6 +16,7 @@ import io
 import os
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -129,6 +130,8 @@ def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str, None, 
     }
     proc = subprocess.Popen(
         [
+            sys.executable,
+            "-m",
             "uvicorn",
             "backend.app.main:app",
             "--host",
