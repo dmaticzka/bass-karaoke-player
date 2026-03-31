@@ -58,7 +58,7 @@ networkx==3.6.1
     # via torch
 numpy==2.4.4
     # via openunmix
-nvidia-cublas==13.1.0.3
+nvidia-cublas==13.3.0.5
     # via
     #   cuda-toolkit
     #   nvidia-cudnn-cu13
