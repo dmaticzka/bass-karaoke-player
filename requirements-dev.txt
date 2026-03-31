@@ -49,7 +49,7 @@ cuda-pathfinder==1.5.0
     # via
     #   -r requirements.txt
     #   cuda-bindings
-cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.2
+cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0
     # via
     #   -r requirements.txt
     #   torch
