@@ -110,9 +110,9 @@ DATA_DIR/
 ## How to run locally (without Docker)
 
 ```bash
-uv sync --group dev
+pip install -r requirements-dev.txt
 FRONTEND_DIR=frontend DATA_DIR=data \
-  PYTHONPATH=. uv run uvicorn backend.app.main:app --reload
+  PYTHONPATH=. uvicorn backend.app.main:app --reload
 ```
 
 ## How to run tests
