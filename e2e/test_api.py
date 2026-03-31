@@ -174,12 +174,12 @@ class TestDeleteSong:
 
 
 class TestStems:
-    def test_get_stem_returns_wav(
+    def test_get_stem_returns_mp3(
         self, api_context: APIRequestContext, ready_song_id: str
     ) -> None:
         resp = api_context.get(f"/api/songs/{ready_song_id}/stems/vocals")
         assert resp.ok
-        assert "audio/wav" in resp.headers["content-type"]
+        assert "audio/mpeg" in resp.headers["content-type"]
 
     def test_get_all_stems(
         self, api_context: APIRequestContext, ready_song_id: str
@@ -203,7 +203,7 @@ class TestStems:
             "?pitch=0.0&tempo=1.0"
         )
         assert resp.ok
-        assert "audio/wav" in resp.headers["content-type"]
+        assert "audio/mpeg" in resp.headers["content-type"]
 
     def test_stem_of_nonready_song_returns_409(
         self,
