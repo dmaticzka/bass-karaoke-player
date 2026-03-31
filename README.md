@@ -50,17 +50,17 @@ open http://localhost:8000
 ### Without Docker
 
 **Prerequisites:**
-- Python ≥ 3.10
+- Python ≥ 3.13
 - [rubberband](https://github.com/breakfastquay/rubberband) CLI (`rubberband` command)
 - ffmpeg (required by demucs)
 
 ```bash
 # Install Python dependencies
-uv sync
+pip install -e .
 
 # Start the server
 FRONTEND_DIR=frontend DATA_DIR=data \
-  uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+  uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Open in your browser
 open http://localhost:8000
@@ -101,14 +101,14 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ```bash
 # Install dev dependencies
-uv sync --group dev
+pip install -e ".[dev]"
 
 # Run tests
-uv run pytest backend/tests/ -v
+pytest backend/tests/ -v
 
 # Lint & format check
-uv run ruff check backend/
-uv run ruff format --check backend/
+ruff check backend/
+ruff format --check backend/
 ```
 
 ### Project structure

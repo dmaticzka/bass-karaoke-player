@@ -15,16 +15,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast, reproducible dependency installation
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Copy dependency manifest first (Docker cache layer)
+COPY pyproject.toml ./
 
-# Copy dependency manifests first (Docker cache layer)
-COPY pyproject.toml uv.lock ./
-
-# Install production dependencies (including gpu extras) using the locked versions.
-# --no-install-project skips installing the project itself (not needed at runtime).
-# UV_SYSTEM_PYTHON=1 installs into the system Python so the runtime stage can COPY --from=builder.
-RUN UV_SYSTEM_PYTHON=1 uv sync --frozen --no-dev --extra gpu --no-install-project
+# Install production dependencies (including gpu extras) into the system Python so
+# the runtime stage can COPY --from=builder /usr/local/lib and /usr/local/bin.
+RUN pip install --no-cache-dir ".[gpu]"
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
