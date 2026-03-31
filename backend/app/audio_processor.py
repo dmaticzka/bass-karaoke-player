@@ -41,8 +41,9 @@ def _run(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess[s
 class StemSplitter:
     """Wraps the demucs CLI to split an audio file into stems."""
 
-    def __init__(self, model: str = DEMUCS_MODEL) -> None:
+    def __init__(self, model: str = DEMUCS_MODEL, jobs: int = 4) -> None:
         self.model = model
+        self.jobs = jobs
 
     def split(self, input_path: Path, output_dir: Path) -> dict[StemName, Path]:
         """Split *input_path* into stems using demucs.
@@ -59,6 +60,8 @@ class StemSplitter:
             "--name",
             self.model,
             "--mp3",
+            "--jobs",
+            str(self.jobs),
             "--out",
             str(output_dir),
             str(input_path),
