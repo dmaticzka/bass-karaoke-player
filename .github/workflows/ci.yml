@@ -19,21 +19,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: pip install --no-cache-dir -r requirements-dev.txt
+        run: uv sync --group dev --frozen
 
       - name: Run ruff (lint + format check)
         run: |
-          ruff check backend/
-          ruff format --check backend/
+          uv run ruff check backend/
+          uv run ruff format --check backend/
 
       - name: Run mypy
-        run: mypy backend/app/ --ignore-missing-imports
+        run: uv run mypy backend/app/ --ignore-missing-imports
 
   test:
     name: Tests
@@ -44,17 +43,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: pip install --no-cache-dir -r requirements-dev.txt
+        run: uv sync --group dev --frozen
 
       - name: Run pytest
         run: |
-          pytest backend/tests/ \
+          uv run pytest backend/tests/ \
             --cov=backend/app \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
@@ -78,19 +76,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version-file: pyproject.toml
 
       - name: Install dev dependencies
-        run: pip install --no-cache-dir -r requirements-dev.txt
+        run: uv sync --group dev --frozen
 
       - name: Install Playwright browsers
-        run: playwright install --with-deps chromium
+        run: uv run playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: pytest e2e/ -v --no-cov
+        run: uv run pytest e2e/ -v --no-cov
         env:
           PYTHONPATH: .
 

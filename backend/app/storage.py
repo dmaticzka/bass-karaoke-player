@@ -61,7 +61,7 @@ class SongStorage:
         for meta in sorted(self.songs_dir.glob("*/meta.json")):
             try:
                 songs.append(Song.model_validate_json(meta.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 continue
         return songs
 
