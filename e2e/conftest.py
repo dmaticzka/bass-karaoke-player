@@ -156,7 +156,11 @@ def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str, None, 
     yield base_url
 
     proc.terminate()
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
 
 
 # ---------------------------------------------------------------------------
