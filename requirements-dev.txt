@@ -136,7 +136,7 @@ nvidia-cublas==13.1.0.3
     #   cuda-toolkit
     #   nvidia-cudnn-cu13
     #   nvidia-cusolver
-nvidia-cuda-cupti==13.0.85
+nvidia-cuda-cupti==13.2.23
     # via
     #   -r requirements.txt
     #   cuda-toolkit
