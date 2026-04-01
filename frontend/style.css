@@ -117,8 +117,6 @@ footer {
   transition: opacity var(--transition), transform var(--transition);
   touch-action: manipulation;
 }
-.btn:hover { opacity: 0.85; transform: translateY(-1px); }
-.btn:active { opacity: 1; transform: none; }
 .btn-primary  { background: var(--color-accent); color: #fff; }
 .btn-secondary { background: var(--color-accent2); color: #fff; }
 .btn-sm {
@@ -392,6 +390,33 @@ footer {
   touch-action: none;
 }
 #time-display { font-size: 0.9rem; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }
+
+/* ---------- Loading / transition states ---------- */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled):hover { opacity: 0.85; transform: translateY(-1px); }
+.btn:not(:disabled):active { opacity: 1; transform: none; }
+
+@keyframes stem-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.stems-grid.loading {
+  pointer-events: none;
+}
+
+.stems-grid.loading .stem-card {
+  animation: stem-pulse 1.2s ease-in-out infinite;
+}
+
+.versions-list.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
 
 /* ---------- Responsive – wider screens ---------- */
 @media (min-width: 600px) {
