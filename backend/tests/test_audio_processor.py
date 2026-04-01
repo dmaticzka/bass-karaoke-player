@@ -87,6 +87,33 @@ class TestStemSplitter:
             with pytest.raises(AudioProcessorError, match="demucs failed"):
                 splitter.split(input_wav, tmp_path / "stems")
 
+    def test_split_command_suppresses_resource_warning(
+        self, splitter: StemSplitter, tmp_path: Path
+    ) -> None:
+        """Python 3.14 resource_tracker flags leaked multiprocessing semaphores
+        created by demucs --jobs workers.  The invocation must pass
+        ``-W ignore::ResourceWarning`` so that warning is suppressed in the
+        child process and does not cause a non-zero exit code."""
+        input_wav = tmp_path / "song.wav"
+        input_wav.write_bytes(b"\x00" * 100)
+
+        model_dir = tmp_path / "stems" / "mdx" / "song"
+        model_dir.mkdir(parents=True)
+        for stem in StemName:
+            (model_dir / f"{stem.value}.mp3").write_bytes(b"\x00" * 100)
+
+        with patch("backend.app.audio_processor._run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            splitter.split(input_wav, tmp_path / "stems")
+            called_cmd = mock_run.call_args[0][0]
+
+        assert "-W" in called_cmd
+        w_idx = called_cmd.index("-W")
+        assert called_cmd[w_idx + 1] == "ignore::ResourceWarning"
+        # The flag must appear before the module invocation
+        m_idx = called_cmd.index("-m")
+        assert w_idx < m_idx, "-W must precede -m demucs"
+
     def test_split_command_contains_model(
         self, splitter: StemSplitter, tmp_path: Path
     ) -> None:

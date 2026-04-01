@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # =============================================================================
 # Bass Karaoke Player – Dockerfile
 # =============================================================================
@@ -82,3 +83,45 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
 
 CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---------------------------------------------------------------------------
+# Stage 3: smoketest – start the server and verify the health endpoint.
+# Built in CI (docker-build job targets this stage) so that startup
+# regressions – wrong imports, broken config, missing env vars, etc. – are
+# caught during `docker build` rather than only during the nightly smoke run.
+# ---------------------------------------------------------------------------
+FROM runtime AS smoketest
+
+USER root
+RUN mkdir -p /tmp/smoke-data && chown player:player /tmp/smoke-data
+USER player
+
+RUN python - <<'PYEOF'
+import os, subprocess, sys, time, urllib.request
+
+TIMEOUT_SECONDS = 30
+env = {**os.environ, "DATA_DIR": "/tmp/smoke-data"}
+srv = subprocess.Popen(
+    [
+        "python", "-m", "uvicorn", "backend.app.main:app",
+        "--host", "127.0.0.1", "--port", "8765",
+    ],
+    env=env,
+)
+try:
+    for _ in range(TIMEOUT_SECONDS):
+        try:
+            urllib.request.urlopen("http://127.0.0.1:8765/api/health")
+            break
+        except OSError:
+            time.sleep(1)
+    else:
+        sys.exit(f"ERROR: server did not become ready within {TIMEOUT_SECONDS} s")
+    r = urllib.request.urlopen("http://127.0.0.1:8765/api/health")
+    body = r.read().decode()
+    assert r.status == 200 and '"ok"' in body, f"unexpected response: {body}"
+    print("Smoke test passed:", body)
+finally:
+    srv.terminate()
+    srv.wait()
+PYEOF

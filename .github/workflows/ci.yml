@@ -111,5 +111,5 @@ jobs:
           tags: bass-karaoke-player:ci-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          target: runtime
+          target: smoketest
 
