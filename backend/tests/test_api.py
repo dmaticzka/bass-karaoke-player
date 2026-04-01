@@ -364,18 +364,18 @@ class TestLifespan:
         assert resp.status_code == 200
         assert isinstance(main_module.storage, SongStorage)
 
-    def test_lifespan_passes_demucs_jobs_to_splitter(
+    def test_lifespan_creates_stem_splitter(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """DEMUCS_JOBS env var is forwarded to StemSplitter."""
+        """Lifespan must initialise a StemSplitter instance."""
         import backend.app.main as main_module
+        from backend.app.audio_processor import StemSplitter
 
         monkeypatch.setattr(main_module, "DATA_DIR", tmp_path / "data")
-        monkeypatch.setattr(main_module, "DEMUCS_JOBS", 8)
         app = create_app()
         with TestClient(app) as client:
             client.get("/api/health")
-        assert main_module.splitter.jobs == 8
+        assert isinstance(main_module.splitter, StemSplitter)
 
 
 # ---------------------------------------------------------------------------
@@ -449,7 +449,7 @@ class TestSplitSongTask:
         updated = storage.load_song(song.id)
         assert updated is not None
         assert updated.status == SongStatus.ERROR
-        assert "demucs failed" in (updated.error_message or "")
+        assert updated.error_message == "Stem splitting failed"
 
     def test_stem_splitting_success_sets_ready_status(
         self, data_dir: Path, tmp_path: Path
@@ -635,7 +635,7 @@ class TestProcessStemEdgeCases:
             json={"pitch_semitones": 0.0, "tempo_ratio": 1.0},
         )
         assert resp.status_code == 500
-        assert "rubberband failed" in resp.json()["detail"]
+        assert resp.json()["detail"] == "Audio processing failed"
 
 
 # ---------------------------------------------------------------------------
@@ -765,4 +765,4 @@ class TestGetProcessedStem:
         )
         resp = client.get("/api/songs/gps-song/stems/vocals/processed")
         assert resp.status_code == 500
-        assert "rubberband crashed" in resp.json()["detail"]
+        assert resp.json()["detail"] == "Audio processing failed"

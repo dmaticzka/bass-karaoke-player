@@ -132,28 +132,7 @@ class TestStemSplitter:
             assert "mdx" in called_cmd
             assert "--mp3" in called_cmd
             assert str(input_wav) in called_cmd
-
-    def test_split_command_contains_jobs(self, tmp_path: Path) -> None:
-        splitter = StemSplitter(model="mdx", jobs=8)
-        input_wav = tmp_path / "song.wav"
-        input_wav.write_bytes(b"\x00" * 100)
-
-        model_dir = tmp_path / "stems" / "mdx" / "song"
-        model_dir.mkdir(parents=True)
-        for stem in StemName:
-            (model_dir / f"{stem.value}.mp3").write_bytes(b"\x00" * 100)
-
-        with patch("backend.app.audio_processor._run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            splitter.split(input_wav, tmp_path / "stems")
-            called_cmd = mock_run.call_args[0][0]
-            assert "--jobs" in called_cmd
-            jobs_idx = called_cmd.index("--jobs")
-            assert called_cmd[jobs_idx + 1] == "8"
-
-    def test_default_jobs_is_four(self) -> None:
-        splitter = StemSplitter()
-        assert splitter.jobs == 4
+            assert "--jobs" not in called_cmd
 
 
 # ---------------------------------------------------------------------------
