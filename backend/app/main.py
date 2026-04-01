@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
 FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend"))
-DEMUCS_JOBS = int(os.getenv("DEMUCS_JOBS", "4"))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
 
@@ -55,7 +55,7 @@ processor: RubberbandProcessor
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     global storage, splitter, processor  # noqa: PLW0603
     storage = SongStorage(DATA_DIR)
-    splitter = StemSplitter(jobs=DEMUCS_JOBS)
+    splitter = StemSplitter()
     processor = RubberbandProcessor()
     yield
 
@@ -65,7 +65,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 # ---------------------------------------------------------------------------
 
 
+_VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
+def _configure_logging() -> None:
+    """Configure root logger from the LOG_LEVEL environment variable.
+
+    Uses Python's standard :mod:`logging` module. Ensures at least one
+    StreamHandler (stderr) is attached so that Docker can capture log output.
+    """
+    level_name = LOG_LEVEL if LOG_LEVEL in _VALID_LOG_LEVELS else "INFO"
+    numeric_level: int = getattr(logging, level_name)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s %(levelname)-8s %(name)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    )
+    # Always honour LOG_LEVEL even when a handler was already installed
+    # (e.g. by uvicorn) before create_app() is called.
+    logging.getLogger().setLevel(numeric_level)
+    if LOG_LEVEL not in _VALID_LOG_LEVELS:
+        logger.warning(
+            "Invalid LOG_LEVEL %r; defaulting to INFO. Valid values: %s",
+            LOG_LEVEL,
+            ", ".join(sorted(_VALID_LOG_LEVELS)),
+        )
+
+
 def create_app() -> FastAPI:
+    _configure_logging()
     app = FastAPI(
         title="Bass Karaoke Player",
         description=(
@@ -134,9 +162,11 @@ def _split_song_task(song_id: str) -> None:
 
     try:
         stem_map = splitter.split(input_path, stems_out_dir)
-    except AudioProcessorError as exc:
+    except AudioProcessorError:
         logger.exception("Stem splitting failed for %s", song_id)
-        storage.update_status(song_id, SongStatus.ERROR, error_message=str(exc))
+        storage.update_status(
+            song_id, SongStatus.ERROR, error_message="Stem splitting failed"
+        )
         return
 
     # Copy stems to expected locations in storage
@@ -289,7 +319,12 @@ def _song_router() -> APIRouter:
                     tempo_ratio=params.tempo_ratio,
                 )
             except AudioProcessorError as exc:
-                raise HTTPException(status_code=500, detail=str(exc)) from exc
+                logger.exception(
+                    "Audio processing failed for song %s stem %s", song_id, stem_name
+                )
+                raise HTTPException(
+                    status_code=500, detail="Audio processing failed"
+                ) from exc
 
         return ProcessResponse(
             song_id=song_id,
@@ -335,7 +370,12 @@ def _song_router() -> APIRouter:
                     input_path, output_path, pitch_semitones=pitch, tempo_ratio=tempo
                 )
             except AudioProcessorError as exc:
-                raise HTTPException(status_code=500, detail=str(exc)) from exc
+                logger.exception(
+                    "Audio processing failed for song %s stem %s", song_id, stem_name
+                )
+                raise HTTPException(
+                    status_code=500, detail="Audio processing failed"
+                ) from exc
 
         return FileResponse(output_path, media_type="audio/mpeg")
 
