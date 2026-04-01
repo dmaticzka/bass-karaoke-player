@@ -77,12 +77,12 @@ jobs:
           print('OK')
           "
 
-      - name: Generate test audio fixture (3 s silent stereo WAV)
-        run: python3 e2e/fixtures/generate_wav.py /tmp/smoke_test.wav 3.0
+      - name: Generate test audio fixture (10 s silent stereo MP3)
+        run: python3 e2e/fixtures/generate_mp3.py /tmp/smoke_test.mp3 10.0
 
       - name: Smoke – upload audio file
         run: |
-          RESP=$(curl -sf -F "file=@/tmp/smoke_test.wav" http://localhost:8000/api/songs)
+          RESP=$(curl -sf -F "file=@/tmp/smoke_test.mp3" http://localhost:8000/api/songs)
           echo "$RESP"
           SONG_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           INITIAL_STATUS=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
