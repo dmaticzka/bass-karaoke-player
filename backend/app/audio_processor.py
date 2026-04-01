@@ -55,6 +55,13 @@ class StemSplitter:
 
         cmd = [
             "python",
+            # Suppress ResourceWarning about leaked multiprocessing semaphores.
+            # Python 3.14's stricter resource_tracker flags these when demucs
+            # worker processes exit after a --jobs run; the warning is harmless
+            # but would otherwise clutter logs or, in strict-warning contexts,
+            # raise an exception that fails the split.
+            "-W",
+            "ignore::ResourceWarning",
             "-m",
             "demucs",
             "--name",
