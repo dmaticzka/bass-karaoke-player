@@ -10,6 +10,8 @@ from backend.app.models import (
     SongStatus,
     StemName,
     StemVolume,
+    Version,
+    VersionListResponse,
 )
 from pydantic import ValidationError
 
@@ -113,3 +115,35 @@ class TestProcessResponse:
         )
         assert resp.stem is StemName.VOCALS
         assert resp.pitch_semitones == 2.0
+
+
+class TestVersion:
+    def test_default_version(self) -> None:
+        ver = Version(pitch_semitones=0.0, tempo_ratio=1.0, is_default=True)
+        assert ver.is_default is True
+        assert ver.pitch_semitones == 0.0
+        assert ver.tempo_ratio == 1.0
+
+    def test_non_default_version(self) -> None:
+        ver = Version(pitch_semitones=2.0, tempo_ratio=0.8)
+        assert ver.is_default is False
+        assert ver.pitch_semitones == 2.0
+        assert ver.tempo_ratio == 0.8
+
+    def test_is_default_defaults_to_false(self) -> None:
+        ver = Version(pitch_semitones=-3.0, tempo_ratio=1.25)
+        assert ver.is_default is False
+
+
+class TestVersionListResponse:
+    def test_empty_versions(self) -> None:
+        resp = VersionListResponse(versions=[])
+        assert resp.versions == []
+
+    def test_multiple_versions(self) -> None:
+        default = Version(pitch_semitones=0.0, tempo_ratio=1.0, is_default=True)
+        modified = Version(pitch_semitones=2.0, tempo_ratio=1.5)
+        resp = VersionListResponse(versions=[default, modified])
+        assert len(resp.versions) == 2
+        assert resp.versions[0].is_default is True
+        assert resp.versions[1].is_default is False

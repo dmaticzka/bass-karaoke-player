@@ -23,6 +23,8 @@ from backend.app.models import (
     SongListResponse,
     SongStatus,
     StemName,
+    Version,
+    VersionListResponse,
 )
 from backend.app.storage import SongStorage
 from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, UploadFile
@@ -378,6 +380,57 @@ def _song_router() -> APIRouter:
                 ) from exc
 
         return FileResponse(output_path, media_type="audio/mpeg")
+
+    @router.get(
+        "/songs/{song_id}/versions",
+        response_model=VersionListResponse,
+        responses={
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+        },
+    )
+    async def list_versions(song_id: str) -> VersionListResponse:
+        """Return all pre-calculated pitch/tempo versions for a ready song.
+
+        The default version (pitch=0, tempo=1.0) is always included first and
+        represents the unmodified stems produced by demucs.
+        """
+        _require_ready_song(song_id)
+        pairs = storage.list_versions(song_id)
+        versions: list[Version] = [
+            Version(pitch_semitones=0.0, tempo_ratio=1.0, is_default=True)
+        ]
+        for pitch, tempo in pairs:
+            versions.append(Version(pitch_semitones=pitch, tempo_ratio=tempo))
+        return VersionListResponse(versions=versions)
+
+    @router.delete(
+        "/songs/{song_id}/versions",
+        status_code=204,
+        responses={
+            400: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+        },
+    )
+    async def delete_version(
+        song_id: str,
+        pitch: float = 0.0,
+        tempo: float = 1.0,
+    ) -> None:
+        """Delete a pre-calculated version (its processed stem files).
+
+        The default version (pitch=0, tempo=1.0) cannot be deleted.
+        Returns 404 if no processed files for the given pitch/tempo were found.
+        """
+        _require_ready_song(song_id)
+        if pitch == 0.0 and tempo == 1.0:
+            raise HTTPException(
+                status_code=400, detail="Cannot delete the default version."
+            )
+        count = storage.delete_version(song_id, pitch, tempo)
+        if count == 0:
+            raise HTTPException(status_code=404, detail="Version not found.")
 
     @router.get("/health")
     async def health() -> dict[str, str]:
