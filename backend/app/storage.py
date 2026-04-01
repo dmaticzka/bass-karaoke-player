@@ -104,6 +104,73 @@ class SongStorage:
         return proc_dir / f"{stem.value}_{tag}.mp3"
 
     # ------------------------------------------------------------------
+    # Version helpers
+    # ------------------------------------------------------------------
+
+    def list_versions(self, song_id: str) -> list[tuple[float, float]]:
+        """Return unique (pitch_semitones, tempo_ratio) pairs from processed/ dir."""
+        proc_dir = self.processed_output_dir(song_id)
+        if not proc_dir.exists():
+            return []
+
+        versions: set[tuple[float, float]] = set()
+        for f in proc_dir.iterdir():
+            if f.suffix != ".mp3":
+                continue
+            name = f.stem  # filename without .mp3
+            for stem in StemName:
+                prefix = f"{stem.value}_"
+                if name.startswith(prefix):
+                    tag = name[len(prefix) :]
+                    parsed = self._parse_version_tag(tag)
+                    if parsed is not None:
+                        versions.add(parsed)
+                    break
+
+        return sorted(versions)
+
+    @staticmethod
+    def _parse_version_tag(tag: str) -> tuple[float, float] | None:
+        """Parse a version tag back into (pitch_semitones, tempo_ratio).
+
+        Tag format: p{sign}{encoded_abs_pitch}_t{encoded_tempo}
+        where '+' → 'p', '-' → 'm', '.' → 'd'.
+        """
+        try:
+            pitch_part, tempo_part = tag.split("_t", 1)
+            # pitch_part: e.g. "pp2d00" or "pm3d50" (leading 'p' is literal prefix)
+            inner = pitch_part[1:]  # strip leading 'p' prefix
+            sign = "+" if inner[0] == "p" else "-"
+            pitch = float(sign + inner[1:].replace("d", "."))
+            tempo = float(tempo_part.replace("d", "."))
+            return (pitch, tempo)
+        except ValueError, IndexError:
+            return None
+
+    def delete_version(self, song_id: str, pitch: float, tempo: float) -> int:
+        """Delete all processed stem files for the given pitch/tempo pair.
+
+        Returns the number of files deleted (0 if none found).
+        """
+        proc_dir = self.processed_output_dir(song_id)
+        if not proc_dir.exists():
+            return 0
+
+        tag = (
+            f"p{pitch:+.2f}_t{tempo:.3f}".replace("+", "p")
+            .replace("-", "m")
+            .replace(".", "d")
+        )
+
+        count = 0
+        for stem in StemName:
+            path = proc_dir / f"{stem.value}_{tag}.mp3"
+            if path.exists():
+                path.unlink()
+                count += 1
+        return count
+
+    # ------------------------------------------------------------------
     # Factory helpers
     # ------------------------------------------------------------------
 

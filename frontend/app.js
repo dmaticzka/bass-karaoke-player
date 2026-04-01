@@ -35,6 +35,8 @@ const state = {
   stemVolumes: {},     // { stemName: float 0-2 }
   stemMuted: {},       // { stemName: bool }
   pendingProcess: false,
+  activeVersion: { pitch: 0, tempo: 1.0 },  // currently loaded version
+  versions: [],        // list of Version objects from API
 };
 
 /* ---------- DOM references ---------- */
@@ -60,6 +62,9 @@ const playPauseBtn  = $("play-pause-btn");
 const stopBtn       = $("stop-btn");
 const seekSlider    = $("seek-slider");
 const timeDisplay   = $("time-display");
+
+const versionsSection = $("versions-section");
+const versionsList    = $("versions-list");
 
 /* ==========================================================================
    API helpers
@@ -95,6 +100,112 @@ function stemUrl(songId, stemName) {
 
 function processedStemUrl(songId, stemName, pitch, tempoRatio) {
   return `${API_BASE}/songs/${songId}/stems/${stemName}/processed?pitch=${pitch}&tempo=${tempoRatio}`;
+}
+
+async function apiDelete(path) {
+  const resp = await fetch(API_BASE + path, { method: "DELETE" });
+  if (!resp.ok && resp.status !== 404) throw new Error(`DELETE ${path} → ${resp.status}`);
+}
+
+/* ==========================================================================
+   Versions
+   ========================================================================== */
+
+async function fetchVersions(songId) {
+  try {
+    const data = await apiGet(`/songs/${songId}/versions`);
+    state.versions = data.versions;
+    renderVersions();
+  } catch (e) {
+    console.error("Failed to load versions:", e);
+  }
+}
+
+function renderVersions() {
+  versionsList.innerHTML = "";
+  for (const ver of state.versions) {
+    const pitchStr  = ver.pitch_semitones > 0 ? `+${ver.pitch_semitones}` : String(ver.pitch_semitones);
+    const tempoStr  = `${Math.round(ver.tempo_ratio * 100)}%`;
+    const label     = ver.is_default ? `Original (${tempoStr})` : `${pitchStr} st, ${tempoStr}`;
+
+    const isActive =
+      state.activeVersion.pitch === ver.pitch_semitones &&
+      state.activeVersion.tempo === ver.tempo_ratio;
+
+    const li = document.createElement("li");
+    li.className = "version-item" +
+      (ver.is_default ? " default-version" : "") +
+      (isActive ? " active" : "");
+    li.title = `Pitch: ${pitchStr} semitones, Tempo: ${tempoStr}`;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = label;
+    li.appendChild(labelSpan);
+
+    if (!ver.is_default) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "version-delete-btn";
+      delBtn.textContent = "✕";
+      delBtn.title = "Delete this version";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteVersion(state.activeSong.id, ver.pitch_semitones, ver.tempo_ratio);
+      });
+      li.appendChild(delBtn);
+    }
+
+    li.addEventListener("click", () => {
+      selectVersion(ver.pitch_semitones, ver.tempo_ratio);
+    });
+
+    versionsList.appendChild(li);
+  }
+}
+
+async function selectVersion(pitch, tempo) {
+  if (!state.activeSong) return;
+  if (state.activeVersion.pitch === pitch && state.activeVersion.tempo === tempo) return;
+
+  const wasPlaying = state.isPlaying;
+  const savedOffset = wasPlaying
+    ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
+    : state.startOffset;
+  stopAll();
+
+  // Update sliders to reflect the selected version
+  pitchSlider.value = pitch;
+  pitchValue.textContent = String(pitch);
+  tempoSlider.value = Math.round(tempo * 100);
+  tempoValue.textContent = `${Math.round(tempo * 100)}%`;
+  state.pitch = pitch;
+  state.tempo = Math.round(tempo * 100);
+
+  state.activeVersion = { pitch, tempo };
+  renderVersions();
+
+  try {
+    await fetchAndDecodeStems(state.activeSong, pitch, tempo);
+    if (wasPlaying) playAll(savedOffset);
+  } catch (e) {
+    console.error("Failed to load version:", e);
+  }
+}
+
+async function deleteVersion(songId, pitch, tempo) {
+  const isActive = state.activeVersion.pitch === pitch && state.activeVersion.tempo === tempo;
+  try {
+    const params = new URLSearchParams({ pitch: String(pitch), tempo: String(tempo) });
+    const resp = await fetch(`${API_BASE}/songs/${songId}/versions?${params}`, { method: "DELETE" });
+    if (!resp.ok && resp.status !== 404) throw new Error(`Delete version failed: ${resp.status}`);
+  } catch (e) {
+    console.error("Failed to delete version:", e);
+    return;
+  }
+  // If deleted version was active, fall back to default
+  if (isActive) {
+    await selectVersion(0, 1.0);
+  }
+  await fetchVersions(songId);
 }
 
 /* ==========================================================================
@@ -246,6 +357,7 @@ function startPolling(songId) {
 async function loadSong(song) {
   stopAll();
   state.activeSong = song;
+  state.activeVersion = { pitch: 0, tempo: 1.0 };
   playerTitle.textContent = song.filename;
   playerSection.classList.remove("hidden");
 
@@ -261,6 +373,7 @@ async function loadSong(song) {
   renderSongList(); // update active highlight
 
   await fetchAndDecodeStems(song, 0, 1);
+  await fetchVersions(song.id);
 }
 
 function renderStemCards(stems) {
@@ -488,7 +601,11 @@ applyBtn.addEventListener("click", async () => {
   applyBtn.textContent = "Processing…";
 
   try {
-    await fetchAndDecodeStems(state.activeSong, state.pitch, state.tempo / 100);
+    const pitchSemitones = state.pitch;
+    const tempoRatio = state.tempo / 100;
+    await fetchAndDecodeStems(state.activeSong, pitchSemitones, tempoRatio);
+    state.activeVersion = { pitch: pitchSemitones, tempo: tempoRatio };
+    await fetchVersions(state.activeSong.id);
     if (wasPlaying) playAll(savedOffset);
   } catch (e) {
     alert(`Processing failed: ${e.message}`);
@@ -511,7 +628,9 @@ resetBtn.addEventListener("click", async () => {
     ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
     : state.startOffset;
   stopAll();
+  state.activeVersion = { pitch: 0, tempo: 1.0 };
   await fetchAndDecodeStems(state.activeSong, 0, 1);
+  renderVersions();
   if (wasPlaying) playAll(savedOffset);
 });
 

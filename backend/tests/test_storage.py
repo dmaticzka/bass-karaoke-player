@@ -138,3 +138,84 @@ class TestSongStorage:
         reloaded = storage.load_song(song.id)
         assert reloaded is not None
         assert reloaded.error_message == "processing failed"
+
+
+class TestVersionStorage:
+    def test_list_versions_empty_no_dir(self, storage: SongStorage) -> None:
+        """list_versions returns [] when processed/ dir does not exist."""
+        song = storage.create_song("song.mp3")
+        assert storage.list_versions(song.id) == []
+
+    def test_list_versions_empty_dir(self, storage: SongStorage) -> None:
+        """list_versions returns [] for an existing but empty processed/ dir."""
+        song = storage.create_song("song.mp3")
+        storage.processed_output_dir(song.id).mkdir(parents=True, exist_ok=True)
+        assert storage.list_versions(song.id) == []
+
+    def test_list_versions_single(self, storage: SongStorage) -> None:
+        """A single processed file yields one version tuple."""
+        song = storage.create_song("song.mp3")
+        path = storage.processed_path(song.id, StemName.VOCALS, 2.0, 1.5)
+        path.write_bytes(b"\x00" * 10)
+        versions = storage.list_versions(song.id)
+        assert versions == [(2.0, 1.5)]
+
+    def test_list_versions_deduplicates_across_stems(
+        self, storage: SongStorage
+    ) -> None:
+        """Each (pitch, tempo) pair is returned once even when multiple stems exist."""
+        song = storage.create_song("song.mp3")
+        for stem in StemName:
+            path = storage.processed_path(song.id, stem, -3.0, 0.75)
+            path.write_bytes(b"\x00" * 10)
+        versions = storage.list_versions(song.id)
+        assert versions == [(-3.0, 0.75)]
+
+    def test_list_versions_multiple_unique_pairs(self, storage: SongStorage) -> None:
+        """Multiple distinct (pitch, tempo) pairs are all returned and sorted."""
+        song = storage.create_song("song.mp3")
+        storage.processed_path(song.id, StemName.BASS, 0.0, 0.5).write_bytes(b"\x00")
+        storage.processed_path(song.id, StemName.BASS, 2.0, 1.0).write_bytes(b"\x00")
+        storage.processed_path(song.id, StemName.BASS, -1.0, 1.25).write_bytes(b"\x00")
+        versions = storage.list_versions(song.id)
+        assert len(versions) == 3
+        assert (-1.0, 1.25) in versions
+        assert (0.0, 0.5) in versions
+        assert (2.0, 1.0) in versions
+
+    def test_list_versions_ignores_unknown_files(self, storage: SongStorage) -> None:
+        """Files with unexpected names are silently ignored."""
+        song = storage.create_song("song.mp3")
+        proc_dir = storage.processed_output_dir(song.id)
+        proc_dir.mkdir(parents=True, exist_ok=True)
+        (proc_dir / "garbage.mp3").write_bytes(b"\x00")
+        (proc_dir / "readme.txt").write_bytes(b"hello")
+        assert storage.list_versions(song.id) == []
+
+    def test_delete_version_removes_files(self, storage: SongStorage) -> None:
+        """delete_version removes all stem files for the given pair."""
+        song = storage.create_song("song.mp3")
+        for stem in StemName:
+            storage.processed_path(song.id, stem, 1.0, 1.2).write_bytes(b"\x00")
+        count = storage.delete_version(song.id, 1.0, 1.2)
+        assert count == len(list(StemName))
+        assert storage.list_versions(song.id) == []
+
+    def test_delete_version_returns_zero_when_not_found(
+        self, storage: SongStorage
+    ) -> None:
+        """delete_version returns 0 when there are no matching files."""
+        song = storage.create_song("song.mp3")
+        assert storage.delete_version(song.id, 5.0, 2.0) == 0
+
+    def test_delete_version_no_processed_dir(self, storage: SongStorage) -> None:
+        """delete_version returns 0 when processed/ dir does not exist."""
+        song = storage.create_song("song.mp3")
+        assert storage.delete_version(song.id, 0.5, 1.0) == 0
+
+    def test_delete_version_partial_stems(self, storage: SongStorage) -> None:
+        """delete_version only counts files that actually exist."""
+        song = storage.create_song("song.mp3")
+        storage.processed_path(song.id, StemName.BASS, 2.0, 1.0).write_bytes(b"\x00")
+        count = storage.delete_version(song.id, 2.0, 1.0)
+        assert count == 1

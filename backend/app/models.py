@@ -89,6 +89,20 @@ class ProcessResponse(BaseModel):
     output_path: str
 
 
+class Version(BaseModel):
+    """A pre-calculated pitch/tempo version of a song."""
+
+    pitch_semitones: float
+    tempo_ratio: float
+    is_default: bool = False
+
+
+class VersionListResponse(BaseModel):
+    """Response containing a list of pre-calculated versions."""
+
+    versions: list[Version]
+
+
 class ErrorResponse(BaseModel):
     """Standard error response body."""
 

@@ -766,3 +766,163 @@ class TestGetProcessedStem:
         resp = client.get("/api/songs/gps-song/stems/vocals/processed")
         assert resp.status_code == 500
         assert resp.json()["detail"] == "Audio processing failed"
+
+
+# ---------------------------------------------------------------------------
+# Versions endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestListVersions:
+    """Tests for GET /api/songs/{song_id}/versions."""
+
+    def _make_ready_song(self, data_dir: Path, song_id: str = "ver-song") -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id=song_id,
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+        return song
+
+    def test_default_version_always_present(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Default version is returned even when no processed files exist."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get("/api/songs/ver-song/versions")
+        assert resp.status_code == 200
+        versions = resp.json()["versions"]
+        assert len(versions) == 1
+        default = versions[0]
+        assert default["pitch_semitones"] == 0.0
+        assert default["tempo_ratio"] == 1.0
+        assert default["is_default"] is True
+
+    def test_includes_cached_versions(self, client: TestClient, data_dir: Path) -> None:
+        """Processed files in processed/ dir are reflected in response."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Create a processed file
+        for stem in StemName:
+            path = storage.processed_path("ver-song", stem, 2.0, 1.5)
+            path.write_bytes(b"\x00" * 10)
+
+        resp = client.get("/api/songs/ver-song/versions")
+        assert resp.status_code == 200
+        versions = resp.json()["versions"]
+        assert len(versions) == 2
+        non_default = [v for v in versions if not v["is_default"]]
+        assert len(non_default) == 1
+        assert non_default[0]["pitch_semitones"] == 2.0
+        assert non_default[0]["tempo_ratio"] == 1.5
+        assert non_default[0]["is_default"] is False
+
+    def test_song_not_found_returns_404(self, client: TestClient) -> None:
+        resp = client.get("/api/songs/does-not-exist/versions")
+        assert resp.status_code == 404
+
+    def test_song_not_ready_returns_409(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("pending.mp3")
+        main_module.storage = storage
+        resp = client.get(f"/api/songs/{song.id}/versions")
+        assert resp.status_code == 409
+
+
+class TestDeleteVersion:
+    """Tests for DELETE /api/songs/{song_id}/versions."""
+
+    def _make_ready_song_with_version(
+        self,
+        data_dir: Path,
+        pitch: float,
+        tempo: float,
+        song_id: str = "dv-song",
+    ) -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id=song_id,
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+            proc = storage.processed_path(song.id, stem, pitch, tempo)
+            proc.write_bytes(b"\x00" * 10)
+        return song
+
+    def test_delete_version_success(self, client: TestClient, data_dir: Path) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song_with_version(data_dir, 3.0, 1.25)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+
+        resp = client.delete("/api/songs/dv-song/versions?pitch=3.0&tempo=1.25")
+        assert resp.status_code == 204
+        # Verify files are gone
+        assert storage.list_versions("dv-song") == []
+
+    def test_delete_default_version_returns_400(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song_with_version(data_dir, 0.0, 1.0)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.delete("/api/songs/dv-song/versions?pitch=0.0&tempo=1.0")
+        assert resp.status_code == 400
+        assert "default" in resp.json()["detail"].lower()
+
+    def test_delete_nonexistent_version_returns_404(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        song = Song(
+            id="dv-no-ver",
+            filename="t.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage = SongStorage(data_dir)
+        storage.save_song(song)
+        main_module.storage = storage
+        resp = client.delete("/api/songs/dv-no-ver/versions?pitch=5.0&tempo=2.0")
+        assert resp.status_code == 404
+
+    def test_delete_song_not_found_returns_404(self, client: TestClient) -> None:
+        resp = client.delete("/api/songs/ghost/versions?pitch=1.0&tempo=1.0")
+        assert resp.status_code == 404
+
+    def test_delete_song_not_ready_returns_409(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("pending.mp3")
+        main_module.storage = storage
+        resp = client.delete(f"/api/songs/{song.id}/versions?pitch=1.0&tempo=1.0")
+        assert resp.status_code == 409
