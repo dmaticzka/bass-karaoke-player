@@ -25,6 +25,7 @@ const state = {
   audioCtx: null,      // AudioContext
   stemNodes: {},       // { stemName: { source, gainNode, buffer } }
   isPlaying: false,
+  isLoading: false,    // true while stems are being fetched/decoded
   startOffset: 0,      // seconds into the track we started at
   startTime: 0,        // audioCtx.currentTime when play was pressed
   duration: 0,         // seconds
@@ -108,6 +109,21 @@ async function apiDelete(path) {
 }
 
 /* ==========================================================================
+   Loading state
+   ========================================================================== */
+
+function setLoadingState(isLoading) {
+  state.isLoading = isLoading;
+  playPauseBtn.disabled = isLoading;
+  playPauseBtn.textContent = isLoading
+    ? "⏳ Loading…"
+    : state.isPlaying ? "⏸ Pause" : "▶ Play All";
+  stemsGrid.classList.toggle("loading", isLoading);
+  versionsList.classList.toggle("loading", isLoading);
+  resetBtn.disabled = isLoading;
+}
+
+/* ==========================================================================
    Versions
    ========================================================================== */
 
@@ -165,6 +181,7 @@ function renderVersions() {
 async function selectVersion(pitch, tempo) {
   if (!state.activeSong) return;
   if (state.activeVersion.pitch === pitch && state.activeVersion.tempo === tempo) return;
+  if (state.isLoading) return;
 
   const wasPlaying = state.isPlaying;
   const savedOffset = wasPlaying
@@ -183,11 +200,14 @@ async function selectVersion(pitch, tempo) {
   state.activeVersion = { pitch, tempo };
   renderVersions();
 
+  setLoadingState(true);
   try {
     await fetchAndDecodeStems(state.activeSong, pitch, tempo);
     if (wasPlaying) playAll(savedOffset);
   } catch (e) {
     console.error("Failed to load version:", e);
+  } finally {
+    setLoadingState(false);
   }
 }
 
@@ -372,8 +392,13 @@ async function loadSong(song) {
   renderStemCards(song.stems);
   renderSongList(); // update active highlight
 
-  await fetchAndDecodeStems(song, 0, 1);
-  await fetchVersions(song.id);
+  setLoadingState(true);
+  try {
+    await fetchAndDecodeStems(song, 0, 1);
+    await fetchVersions(song.id);
+  } finally {
+    setLoadingState(false);
+  }
 }
 
 function renderStemCards(stems) {
@@ -590,7 +615,7 @@ tempoSlider.addEventListener("input", () => {
 });
 
 applyBtn.addEventListener("click", async () => {
-  if (!state.activeSong) return;
+  if (!state.activeSong || state.isLoading) return;
   const wasPlaying = state.isPlaying;
   const savedOffset = wasPlaying
     ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
@@ -599,6 +624,9 @@ applyBtn.addEventListener("click", async () => {
 
   applyBtn.disabled = true;
   applyBtn.textContent = "Processing…";
+  // setLoadingState covers play/reset/stems; applyBtn is managed separately
+  // so it can show its own "Processing…" label during server-side generation.
+  setLoadingState(true);
 
   try {
     const pitchSemitones = state.pitch;
@@ -610,6 +638,7 @@ applyBtn.addEventListener("click", async () => {
   } catch (e) {
     alert(`Processing failed: ${e.message}`);
   } finally {
+    setLoadingState(false);
     applyBtn.disabled = false;
     applyBtn.textContent = "Apply";
   }
@@ -622,16 +651,21 @@ resetBtn.addEventListener("click", async () => {
   tempoValue.textContent = "100%";
   state.pitch = 0;
   state.tempo = 100;
-  if (!state.activeSong) return;
+  if (!state.activeSong || state.isLoading) return;
   const wasPlaying = state.isPlaying;
   const savedOffset = wasPlaying
     ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
     : state.startOffset;
   stopAll();
   state.activeVersion = { pitch: 0, tempo: 1.0 };
-  await fetchAndDecodeStems(state.activeSong, 0, 1);
-  renderVersions();
-  if (wasPlaying) playAll(savedOffset);
+  setLoadingState(true);
+  try {
+    await fetchAndDecodeStems(state.activeSong, 0, 1);
+    renderVersions();
+    if (wasPlaying) playAll(savedOffset);
+  } finally {
+    setLoadingState(false);
+  }
 });
 
 /* ==========================================================================
