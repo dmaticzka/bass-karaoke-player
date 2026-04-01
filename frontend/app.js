@@ -124,7 +124,7 @@ async function fetchVersions(songId) {
 function renderVersions() {
   versionsList.innerHTML = "";
   for (const ver of state.versions) {
-    const pitchStr  = ver.pitch_semitones === 0 ? "0" : (ver.pitch_semitones > 0 ? `+${ver.pitch_semitones}` : `${ver.pitch_semitones}`);
+    const pitchStr  = ver.pitch_semitones > 0 ? `+${ver.pitch_semitones}` : String(ver.pitch_semitones);
     const tempoStr  = `${Math.round(ver.tempo_ratio * 100)}%`;
     const label     = ver.is_default ? `Original (${tempoStr})` : `${pitchStr} st, ${tempoStr}`;
 
@@ -174,7 +174,7 @@ async function selectVersion(pitch, tempo) {
 
   // Update sliders to reflect the selected version
   pitchSlider.value = pitch;
-  pitchValue.textContent = pitch >= 0 ? String(pitch) : String(pitch);
+  pitchValue.textContent = String(pitch);
   tempoSlider.value = Math.round(tempo * 100);
   tempoValue.textContent = `${Math.round(tempo * 100)}%`;
   state.pitch = pitch;
