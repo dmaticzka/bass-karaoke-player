@@ -77,11 +77,14 @@ jobs:
           print('OK')
           "
 
-      - name: Install ffmpeg (needed to generate test fixture)
+      - name: Install ffmpeg (needed to prepare test fixture)
         run: sudo apt-get install -y ffmpeg
 
-      - name: Generate test audio fixture (10 s silent stereo MP3)
-        run: python3 e2e/fixtures/generate_mp3.py /tmp/smoke_test.mp3 10.0
+      - name: Prepare 20-second sample from real audio fixture
+        run: |
+          ffmpeg -y -i e2e/media/Evil_Minded_Blues.mp3 \
+            -t 20 -codec:a copy \
+            /tmp/smoke_test.mp3
 
       - name: Smoke – upload audio file
         run: |
