@@ -23,8 +23,6 @@ jobs:
             libsndfile1
 
       - uses: astral-sh/setup-uv@v7
-        with:
-          python-version-file: pyproject.toml
 
       - name: Install Python dependencies
         run: uv sync --group dev --frozen
