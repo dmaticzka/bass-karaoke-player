@@ -1,0 +1,36 @@
+/* =====================================================================
+   Bass Karaoke Player – Lit frontend global styles
+   ===================================================================== */
+
+/* --- Reset / base --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- CSS custom properties (cascade into shadow DOM) --- */
+:root {
+  --c-bg:      #1a1a2e;
+  --c-surface: #16213e;
+  --c-accent:  #e94560;
+  --c-accent2: #0f3460;
+  --c-text:    #eaeaea;
+  --c-muted:   #888;
+  --c-border:  #2a2a4a;
+}
+
+html, body {
+  height: 100%;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+bkp-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}

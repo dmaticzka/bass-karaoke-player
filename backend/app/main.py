@@ -132,6 +132,16 @@ def create_app() -> FastAPI:
                 )
             return FileResponse(str(index))
 
+        @app.get("/lit", include_in_schema=False)
+        @app.get("/lit/", include_in_schema=False)
+        async def serve_lit() -> FileResponse:
+            index = FRONTEND_DIR / "lit" / "index.html"
+            if not index.is_file():
+                raise HTTPException(
+                    status_code=404, detail="Lit frontend not found."
+                )
+            return FileResponse(str(index))
+
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     app.include_router(_song_router())
