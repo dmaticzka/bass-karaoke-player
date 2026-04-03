@@ -18,8 +18,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         gcc \
-        libsndfile1-dev \
-    && rm -rf /var/lib/apt/lists/*
+        libsndfile1-dev
 
 # Copy locked dependency manifests first (Docker cache layer)
 COPY pyproject.toml uv.lock ./
@@ -48,8 +47,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         rubberband-cli \
         ffmpeg \
-        libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
+        libsndfile1
 
 # Copy the virtual environment from the builder stage
 COPY --from=builder /app/.venv /app/.venv
