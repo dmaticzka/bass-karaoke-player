@@ -7,6 +7,7 @@ import os
 import shutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -461,9 +462,7 @@ def _song_router() -> APIRouter:
             raw_at = entry.get("accessed_at")
             if raw_at:
                 try:
-                    from datetime import datetime
-
-                    accessed_at = datetime.fromisoformat(raw_at)
+                    accessed_at = datetime.fromisoformat(str(raw_at))
                 except ValueError:
                     pass
             versions.append(
@@ -549,6 +548,14 @@ def _song_router() -> APIRouter:
     async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "ok"}
+
+    @router.get("/config")
+    async def get_config() -> dict[str, int]:
+        """Return server-side configuration values useful to the frontend."""
+        return {
+            "max_versions_per_song": MAX_VERSIONS_PER_SONG,
+            "max_versions_global": MAX_VERSIONS_GLOBAL,
+        }
 
     return router
 

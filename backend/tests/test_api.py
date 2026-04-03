@@ -52,6 +52,15 @@ class TestHealth:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
+    def test_config_returns_version_limits(self, client: TestClient) -> None:
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "max_versions_per_song" in data
+        assert "max_versions_global" in data
+        assert data["max_versions_per_song"] > 0
+        assert data["max_versions_global"] > 0
+
 
 # ---------------------------------------------------------------------------
 # Song CRUD

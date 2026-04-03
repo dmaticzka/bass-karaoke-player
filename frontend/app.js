@@ -19,6 +19,9 @@ const STEM_COLORS = {
   other:  "--stem-other",
 };
 
+// Server-side config (fetched on init)
+let serverConfig = { max_versions_per_song: 5, max_versions_global: 50 };
+
 /* ---------- State ---------- */
 const state = {
   songs: [],
@@ -177,7 +180,7 @@ function startVersionPolling(songId) {
 
 function updateCacheStats(cachedCount) {
   if (!cacheStats) return;
-  const maxVersions = 5; // matches MAX_VERSIONS_PER_SONG default
+  const maxVersions = serverConfig.max_versions_per_song;
   cacheStatsLabel.textContent = `Versions: ${cachedCount} / ${maxVersions}`;
   const pct = Math.min(100, (cachedCount / maxVersions) * 100);
   cacheStatsFill.style.width = `${pct}%`;
@@ -1012,7 +1015,9 @@ function fmtTime(secs) {
 
 function fmtRelTime(isoStr) {
   try {
-    const diff = Date.now() - new Date(isoStr).getTime();
+    const ts = new Date(isoStr).getTime();
+    if (!isFinite(ts)) return "";
+    const diff = Date.now() - ts;
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
@@ -1030,7 +1035,12 @@ function fmtRelTime(isoStr) {
 
 refreshBtn.addEventListener("click", refreshSongList);
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    serverConfig = await apiGet("/config");
+  } catch {
+    // Use defaults if config fetch fails
+  }
   updateLoopUI();
   refreshSongList();
 });

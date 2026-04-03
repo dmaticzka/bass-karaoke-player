@@ -116,17 +116,20 @@ class SongStorage:
     def _version_meta_path(self, song_id: str) -> Path:
         return self.processed_output_dir(song_id) / "versions.json"
 
-    def read_version_meta(self, song_id: str) -> dict[str, dict]:  # type: ignore[type-arg]
+    def read_version_meta(self, song_id: str) -> dict[str, dict[str, object]]:
         """Read the versions.json sidecar. Returns empty dict if absent or invalid."""
         path = self._version_meta_path(song_id)
         if not path.exists():
             return {}
         try:
-            return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+            return {}
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def write_version_meta(self, song_id: str, meta: dict[str, dict]) -> None:  # type: ignore[type-arg]
+    def write_version_meta(self, song_id: str, meta: dict[str, dict[str, object]]) -> None:
         """Write the versions.json sidecar."""
         path = self._version_meta_path(song_id)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +144,7 @@ class SongStorage:
             for stem in StemName
             if self.processed_path(song_id, stem, pitch, tempo).exists()
         )
-        entry: dict[str, object] = meta.get(tag, {})
+        entry: dict[str, object] = dict(meta.get(tag, {}))
         entry["accessed_at"] = datetime.now(UTC).isoformat()
         entry["stem_count"] = stem_count
         if "pinned" not in entry:
@@ -185,19 +188,16 @@ class SongStorage:
                 entry = meta.get(tag, {})
                 if entry.get("pinned", False):
                     continue
-                accessed_at: str = entry.get(
-                    "accessed_at", "1970-01-01T00:00:00+00:00"
+                accessed_at = str(
+                    entry.get("accessed_at", "1970-01-01T00:00:00+00:00")
                 )
                 candidates.append((accessed_at, p, t))
             if not candidates:
                 break  # All remaining non-default versions are pinned
             candidates.sort()  # oldest accessed_at first
             _, pitch, tempo = candidates[0]
+            # delete_version also removes the entry from versions.json
             self.delete_version(song_id, pitch, tempo)
-            tag = self._make_version_tag(pitch, tempo)
-            meta = self.read_version_meta(song_id)
-            meta.pop(tag, None)
-            self.write_version_meta(song_id, meta)
             evicted.append((pitch, tempo))
         return evicted
 
