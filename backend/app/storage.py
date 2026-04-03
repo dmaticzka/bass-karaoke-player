@@ -6,8 +6,17 @@ import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypedDict
 
 from backend.app.models import Song, SongStatus, StemName, VersionStatus
+
+
+class VersionMetaEntry(TypedDict, total=False):
+    """Structure of a single entry in versions.json."""
+
+    accessed_at: str   # ISO 8601 timestamp
+    stem_count: int
+    pinned: bool
 
 
 class SongStorage:
@@ -116,7 +125,7 @@ class SongStorage:
     def _version_meta_path(self, song_id: str) -> Path:
         return self.processed_output_dir(song_id) / "versions.json"
 
-    def read_version_meta(self, song_id: str) -> dict[str, dict[str, object]]:
+    def read_version_meta(self, song_id: str) -> dict[str, VersionMetaEntry]:
         """Read the versions.json sidecar. Returns empty dict if absent or invalid."""
         path = self._version_meta_path(song_id)
         if not path.exists():
@@ -129,7 +138,7 @@ class SongStorage:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def write_version_meta(self, song_id: str, meta: dict[str, dict[str, object]]) -> None:
+    def write_version_meta(self, song_id: str, meta: dict[str, VersionMetaEntry]) -> None:
         """Write the versions.json sidecar."""
         path = self._version_meta_path(song_id)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,11 +153,12 @@ class SongStorage:
             for stem in StemName
             if self.processed_path(song_id, stem, pitch, tempo).exists()
         )
-        entry: dict[str, object] = dict(meta.get(tag, {}))
-        entry["accessed_at"] = datetime.now(UTC).isoformat()
-        entry["stem_count"] = stem_count
-        if "pinned" not in entry:
-            entry["pinned"] = False
+        existing = meta.get(tag, {})
+        entry: VersionMetaEntry = {
+            "accessed_at": datetime.now(UTC).isoformat(),
+            "stem_count": stem_count,
+            "pinned": bool(existing.get("pinned", False)),
+        }
         meta[tag] = entry
         self.write_version_meta(song_id, meta)
 
@@ -188,9 +198,7 @@ class SongStorage:
                 entry = meta.get(tag, {})
                 if entry.get("pinned", False):
                     continue
-                accessed_at = str(
-                    entry.get("accessed_at", "1970-01-01T00:00:00+00:00")
-                )
+                accessed_at = entry.get("accessed_at", "1970-01-01T00:00:00+00:00")
                 candidates.append((accessed_at, p, t))
             if not candidates:
                 break  # All remaining non-default versions are pinned
@@ -228,7 +236,7 @@ class SongStorage:
         """Parse a version tag back into (pitch_semitones, tempo_ratio).
 
         Tag format: p{sign}{encoded_abs_pitch}_t{encoded_tempo}
-        where '+' → 'p', '-' → 'm', '.' → 'd'.
+        where '+' -> 'p', '-' -> 'm', '.' -> 'd'.
         """
         try:
             pitch_part, tempo_part = tag.split("_t", 1)
