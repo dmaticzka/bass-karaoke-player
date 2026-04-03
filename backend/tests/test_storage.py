@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from backend.app.models import SongStatus, StemName
+from backend.app.models import SongStatus, StemName, VersionStatus
 from backend.app.storage import SongStorage
 
 
@@ -219,3 +219,196 @@ class TestVersionStorage:
         storage.processed_path(song.id, StemName.BASS, 2.0, 1.0).write_bytes(b"\x00")
         count = storage.delete_version(song.id, 2.0, 1.0)
         assert count == 1
+
+    def test_delete_version_removes_meta_entry(self, storage: SongStorage) -> None:
+        """delete_version must also remove the entry from versions.json."""
+        song = storage.create_song("song.mp3")
+        for stem in StemName:
+            storage.processed_path(song.id, stem, 1.0, 1.2).write_bytes(b"\x00")
+        storage.touch_version(song.id, 1.0, 1.2)
+        tag = storage._make_version_tag(1.0, 1.2)
+        meta_before = storage.read_version_meta(song.id)
+        assert tag in meta_before
+        storage.delete_version(song.id, 1.0, 1.2)
+        meta_after = storage.read_version_meta(song.id)
+        assert tag not in meta_after
+
+
+class TestVersionMeta:
+    """Tests for versions.json sidecar: read/write/touch."""
+
+    def test_read_version_meta_returns_empty_when_absent(
+        self, storage: SongStorage
+    ) -> None:
+        song = storage.create_song("song.mp3")
+        assert storage.read_version_meta(song.id) == {}
+
+    def test_read_version_meta_returns_empty_for_corrupt_json(
+        self, storage: SongStorage
+    ) -> None:
+        song = storage.create_song("song.mp3")
+        meta_path = storage._version_meta_path(song.id)
+        meta_path.parent.mkdir(parents=True, exist_ok=True)
+        meta_path.write_text("{{broken json{{", encoding="utf-8")
+        assert storage.read_version_meta(song.id) == {}
+
+    def test_write_and_read_version_meta_roundtrip(
+        self, storage: SongStorage
+    ) -> None:
+        song = storage.create_song("song.mp3")
+        data: dict[str, dict] = {"key": {"accessed_at": "2026-01-01T00:00:00+00:00"}}  # type: ignore[type-arg]
+        storage.write_version_meta(song.id, data)
+        result = storage.read_version_meta(song.id)
+        assert result["key"]["accessed_at"] == "2026-01-01T00:00:00+00:00"
+
+    def test_touch_version_creates_entry(self, storage: SongStorage) -> None:
+        """touch_version must create a versions.json entry with accessed_at."""
+        song = storage.create_song("song.mp3")
+        # Create all 4 processed stems
+        for stem in StemName:
+            storage.processed_path(song.id, stem, 2.0, 1.5).write_bytes(b"\x00")
+        storage.touch_version(song.id, 2.0, 1.5)
+        tag = storage._make_version_tag(2.0, 1.5)
+        meta = storage.read_version_meta(song.id)
+        assert tag in meta
+        assert "accessed_at" in meta[tag]
+        assert meta[tag]["stem_count"] == 4
+        assert meta[tag]["pinned"] is False
+
+    def test_touch_version_updates_accessed_at(self, storage: SongStorage) -> None:
+        """Calling touch_version twice must update accessed_at."""
+        song = storage.create_song("song.mp3")
+        storage.touch_version(song.id, 1.0, 1.0)
+        tag = storage._make_version_tag(1.0, 1.0)
+        first_at = storage.read_version_meta(song.id)[tag]["accessed_at"]
+        storage.touch_version(song.id, 1.0, 1.0)
+        second_at = storage.read_version_meta(song.id)[tag]["accessed_at"]
+        # Both timestamps are valid ISO strings; second must be >= first
+        assert second_at >= first_at
+
+    def test_touch_version_preserves_pinned_flag(self, storage: SongStorage) -> None:
+        """touch_version must not overwrite an existing pinned=True flag."""
+        song = storage.create_song("song.mp3")
+        tag = storage._make_version_tag(3.0, 0.8)
+        storage.write_version_meta(song.id, {tag: {"pinned": True}})
+        storage.touch_version(song.id, 3.0, 0.8)
+        meta = storage.read_version_meta(song.id)
+        assert meta[tag]["pinned"] is True
+
+
+class TestVersionStatus:
+    """Tests for version_status."""
+
+    def test_missing_when_no_stems(self, storage: SongStorage) -> None:
+        song = storage.create_song("song.mp3")
+        assert storage.version_status(song.id, 2.0, 1.0) == VersionStatus.MISSING
+
+    def test_partial_when_some_stems(self, storage: SongStorage) -> None:
+        song = storage.create_song("song.mp3")
+        storage.processed_path(song.id, StemName.BASS, 2.0, 1.0).write_bytes(b"\x00")
+        assert storage.version_status(song.id, 2.0, 1.0) == VersionStatus.PARTIAL
+
+    def test_ready_when_all_stems(self, storage: SongStorage) -> None:
+        song = storage.create_song("song.mp3")
+        for stem in StemName:
+            storage.processed_path(song.id, stem, 2.0, 1.0).write_bytes(b"\x00")
+        assert storage.version_status(song.id, 2.0, 1.0) == VersionStatus.READY
+
+
+class TestEvictLruVersions:
+    """Tests for evict_lru_versions."""
+
+    def _make_version(
+        self, storage: SongStorage, song_id: str, pitch: float, tempo: float
+    ) -> None:
+        for stem in StemName:
+            storage.processed_path(song_id, stem, pitch, tempo).write_bytes(b"\x00")
+
+    def test_no_eviction_when_within_limit(self, storage: SongStorage) -> None:
+        song = storage.create_song("song.mp3")
+        self._make_version(storage, song.id, 1.0, 1.0)
+        evicted = storage.evict_lru_versions(song.id, max_versions=5)
+        assert evicted == []
+        assert storage.version_status(song.id, 1.0, 1.0) == VersionStatus.READY
+
+    def test_evicts_oldest_when_over_limit(self, storage: SongStorage) -> None:
+        """Oldest accessed_at version must be evicted first."""
+        song = storage.create_song("song.mp3")
+        # Create 3 versions with distinct timestamps in meta
+        for pitch in [1.0, 2.0, 3.0]:
+            self._make_version(storage, song.id, pitch, 1.0)
+        tag1 = storage._make_version_tag(1.0, 1.0)
+        tag2 = storage._make_version_tag(2.0, 1.0)
+        tag3 = storage._make_version_tag(3.0, 1.0)
+        storage.write_version_meta(
+            song.id,
+            {
+                tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False},
+                tag2: {"accessed_at": "2026-01-02T00:00:00+00:00", "pinned": False},
+                tag3: {"accessed_at": "2026-01-03T00:00:00+00:00", "pinned": False},
+            },
+        )
+        evicted = storage.evict_lru_versions(song.id, max_versions=2)
+        assert len(evicted) == 1
+        assert evicted[0] == (1.0, 1.0)  # oldest was pitch=1.0
+        assert storage.version_status(song.id, 1.0, 1.0) == VersionStatus.MISSING
+
+    def test_pinned_versions_not_evicted(self, storage: SongStorage) -> None:
+        """Pinned versions must be skipped during eviction."""
+        song = storage.create_song("song.mp3")
+        for pitch in [1.0, 2.0]:
+            self._make_version(storage, song.id, pitch, 1.0)
+        tag1 = storage._make_version_tag(1.0, 1.0)
+        tag2 = storage._make_version_tag(2.0, 1.0)
+        storage.write_version_meta(
+            song.id,
+            {
+                tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": True},
+                tag2: {"accessed_at": "2026-01-02T00:00:00+00:00", "pinned": True},
+            },
+        )
+        evicted = storage.evict_lru_versions(song.id, max_versions=1)
+        assert evicted == []  # Both are pinned, nothing to evict
+
+    def test_default_version_never_evicted(self, storage: SongStorage) -> None:
+        """The default (0.0, 1.0) version is exempt from eviction."""
+        song = storage.create_song("song.mp3")
+        # Create a processed version at pitch=0.0, tempo=1.0
+        self._make_version(storage, song.id, 0.0, 1.0)
+        self._make_version(storage, song.id, 1.0, 1.0)
+        tag_default = storage._make_version_tag(0.0, 1.0)
+        tag_other = storage._make_version_tag(1.0, 1.0)
+        storage.write_version_meta(
+            song.id,
+            {
+                tag_default: {
+                    "accessed_at": "2025-01-01T00:00:00+00:00",
+                    "pinned": False,
+                },
+                tag_other: {
+                    "accessed_at": "2026-01-01T00:00:00+00:00",
+                    "pinned": False,
+                },
+            },
+        )
+        evicted = storage.evict_lru_versions(song.id, max_versions=1)
+        # (0.0, 1.0) is excluded from the limit so only non-default counts; 1 <= 1 → no eviction
+        assert evicted == []
+
+    def test_evicts_multiple_to_reach_limit(self, storage: SongStorage) -> None:
+        """Multiple versions may be evicted in one call."""
+        song = storage.create_song("song.mp3")
+        for pitch in [1.0, 2.0, 3.0, 4.0]:
+            self._make_version(storage, song.id, pitch, 1.0)
+        for i, pitch in enumerate([1.0, 2.0, 3.0, 4.0]):
+            tag = storage._make_version_tag(pitch, 1.0)
+            meta = storage.read_version_meta(song.id)
+            meta[tag] = {
+                "accessed_at": f"2026-01-0{i + 1}T00:00:00+00:00",
+                "pinned": False,
+            }
+            storage.write_version_meta(song.id, meta)
+        evicted = storage.evict_lru_versions(song.id, max_versions=2)
+        assert len(evicted) == 2
+        remaining = storage.list_versions(song.id)
+        assert len(remaining) == 2

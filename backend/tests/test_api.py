@@ -926,3 +926,341 @@ class TestDeleteVersion:
         main_module.storage = storage
         resp = client.delete(f"/api/songs/{song.id}/versions?pitch=1.0&tempo=1.0")
         assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Bulk-process version endpoint (POST /api/songs/{id}/versions)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateVersion:
+    """Tests for POST /api/songs/{song_id}/versions."""
+
+    def _make_ready_song(
+        self, data_dir: Path, song_id: str = "cv-song"
+    ) -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id=song_id,
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+        return song
+
+    def test_create_version_starts_processing(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """When version is missing, returns status='processing' and triggers task."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+
+        with patch("backend.app.main._process_version_task"):
+            resp = client.post(
+                "/api/songs/cv-song/versions",
+                json={"pitch_semitones": 2.0, "tempo_ratio": 1.2},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "processing"
+        assert data["pitch_semitones"] == 2.0
+        assert data["tempo_ratio"] == 1.2
+        assert data["song_id"] == "cv-song"
+
+    def test_create_version_already_cached_returns_ready(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """When all 4 stems are already cached, returns status='ready' immediately."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Pre-create all 4 processed stems
+        for stem in StemName:
+            storage.processed_path("cv-song", stem, 2.0, 1.2).write_bytes(b"\x00")
+
+        resp = client.post(
+            "/api/songs/cv-song/versions",
+            json={"pitch_semitones": 2.0, "tempo_ratio": 1.2},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ready"
+
+    def test_create_version_partial_triggers_processing(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """When only some stems are cached (partial), triggers background processing."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Only create 1 of 4 stems
+        storage.processed_path("cv-song", StemName.BASS, 1.0, 1.0).write_bytes(b"\x00")
+
+        with patch("backend.app.main._process_version_task"):
+            resp = client.post(
+                "/api/songs/cv-song/versions",
+                json={"pitch_semitones": 1.0, "tempo_ratio": 1.0},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "processing"
+
+    def test_create_version_song_not_found(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/songs/ghost/versions",
+            json={"pitch_semitones": 1.0, "tempo_ratio": 1.0},
+        )
+        assert resp.status_code == 404
+
+    def test_create_version_song_not_ready(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("pending.mp3")
+        main_module.storage = storage
+        resp = client.post(
+            f"/api/songs/{song.id}/versions",
+            json={"pitch_semitones": 0.0, "tempo_ratio": 1.0},
+        )
+        assert resp.status_code == 409
+
+    def test_create_version_invalid_params(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.post(
+            "/api/songs/cv-song/versions",
+            json={"pitch_semitones": 99.0, "tempo_ratio": 1.0},
+        )
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Updated list_versions: status, stem_count, accessed_at
+# ---------------------------------------------------------------------------
+
+
+class TestListVersionsEnriched:
+    """Tests for enriched GET /api/songs/{song_id}/versions response."""
+
+    def _make_ready_song(
+        self, data_dir: Path, song_id: str = "lve-song"
+    ) -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id=song_id,
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+        return song
+
+    def test_default_version_has_ready_status(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get("/api/songs/lve-song/versions")
+        assert resp.status_code == 200
+        default = resp.json()["versions"][0]
+        assert default["is_default"] is True
+        assert default["status"] == "ready"
+        assert default["stem_count"] == 4
+
+    def test_cached_version_shows_ready_status_and_stem_count(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        for stem in StemName:
+            storage.processed_path("lve-song", stem, 3.0, 0.8).write_bytes(b"\x00")
+        storage.touch_version("lve-song", 3.0, 0.8)
+
+        resp = client.get("/api/songs/lve-song/versions")
+        assert resp.status_code == 200
+        non_default = [v for v in resp.json()["versions"] if not v["is_default"]]
+        assert len(non_default) == 1
+        ver = non_default[0]
+        assert ver["status"] == "ready"
+        assert ver["stem_count"] == 4
+        assert ver["accessed_at"] is not None
+
+    def test_partial_version_shows_partial_status(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Only 1 of 4 stems cached
+        storage.processed_path("lve-song", StemName.BASS, 1.0, 1.5).write_bytes(b"\x00")
+
+        resp = client.get("/api/songs/lve-song/versions")
+        assert resp.status_code == 200
+        non_default = [v for v in resp.json()["versions"] if not v["is_default"]]
+        assert len(non_default) == 1
+        assert non_default[0]["status"] == "partial"
+        assert non_default[0]["stem_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# _process_version_task background task
+# ---------------------------------------------------------------------------
+
+
+class TestProcessVersionTask:
+    """Tests for the _process_version_task background task."""
+
+    def _make_ready_song(self, data_dir: Path) -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id="pvt-song",
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+        return song
+
+    def test_song_not_found_returns_gracefully(self, data_dir: Path) -> None:
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        main_module.storage = SongStorage(data_dir)
+        _process_version_task("nonexistent", 1.0, 1.0)  # must not raise
+
+    def test_missing_stem_file_returns_gracefully(self, data_dir: Path) -> None:
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        storage = SongStorage(data_dir)
+        # Song exists but stem files do NOT exist on disk
+        song = Song(
+            id="pvt-no-stem",
+            filename="t.mp3",
+            status=SongStatus.READY,
+            stems=[StemName.VOCALS],
+        )
+        storage.save_song(song)
+        main_module.storage = storage
+        main_module.processor = MagicMock()
+        _process_version_task("pvt-no-stem", 1.0, 1.0)  # must not raise
+        main_module.processor.process.assert_not_called()
+
+    def test_processor_error_returns_gracefully(self, data_dir: Path) -> None:
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        main_module.processor = MagicMock()
+        main_module.processor.process.side_effect = AudioProcessorError("failed")
+        _process_version_task("pvt-song", 2.0, 1.0)  # must not raise
+
+    def test_successful_processing_touches_version(self, data_dir: Path) -> None:
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+
+        def fake_process(input_path, output_path, pitch_semitones=0.0, tempo_ratio=1.0):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"\x00")
+            return output_path
+
+        main_module.processor = MagicMock()
+        main_module.processor.process.side_effect = fake_process
+        _process_version_task("pvt-song", 1.0, 1.2)
+        tag = storage._make_version_tag(1.0, 1.2)
+        meta = storage.read_version_meta("pvt-song")
+        assert tag in meta
+        assert "accessed_at" in meta[tag]
+
+    def test_cached_stems_not_reprocessed(self, data_dir: Path) -> None:
+        """Stems that are already cached must not be passed to processor."""
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Pre-create all processed stems
+        for stem in StemName:
+            storage.processed_path("pvt-song", stem, 1.0, 1.0).write_bytes(b"\x00")
+
+        main_module.processor = MagicMock()
+        _process_version_task("pvt-song", 1.0, 1.0)
+        main_module.processor.process.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# touch_version via get_processed_stem
+# ---------------------------------------------------------------------------
+
+
+class TestGetProcessedStemTouchesVersion:
+    def _make_ready_song(self, data_dir: Path) -> Song:
+        storage = SongStorage(data_dir)
+        song = Song(
+            id="tv-song",
+            filename="track.mp3",
+            status=SongStatus.READY,
+            stems=list(StemName),
+        )
+        storage.save_song(song)
+        for stem in StemName:
+            path = storage.stem_path(song.id, stem)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF" + b"\x00" * 40)
+        return song
+
+    def test_accessing_processed_stem_updates_version_meta(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Pre-create the processed stem
+        out = storage.processed_path("tv-song", StemName.VOCALS, 2.0, 1.0)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        resp = client.get("/api/songs/tv-song/stems/vocals/processed?pitch=2.0&tempo=1.0")
+        assert resp.status_code == 200
+        tag = storage._make_version_tag(2.0, 1.0)
+        meta = storage.read_version_meta("tv-song")
+        assert tag in meta
+        assert "accessed_at" in meta[tag]
