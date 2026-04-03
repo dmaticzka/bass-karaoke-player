@@ -406,7 +406,7 @@ class BkpPlayer extends LitElement {
           <div class="ctrl-group">
             <label for="tempo-range">Tempo (%)</label>
             <div class="slider-row">
-              <input id="tempo-range" type="range" min="25" max="200" step="5"
+              <input id="tempo-range" type="range" min="25" max="400" step="5"
                      .value=${String(this.tempo)}
                      @input=${(e) => this._emit('tempo-input', { value: parseInt(e.target.value, 10) })}
                      aria-label="Tempo percentage" />

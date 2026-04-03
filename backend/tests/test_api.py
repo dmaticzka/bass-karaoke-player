@@ -46,11 +46,6 @@ def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# Frontend routes
-# ---------------------------------------------------------------------------
-
-
 class TestFrontendRoutes:
     def test_root_serves_index_html(self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         frontend_dir = tmp_path / "frontend"
