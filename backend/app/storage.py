@@ -14,7 +14,7 @@ from backend.app.models import Song, SongStatus, StemName, VersionStatus
 class VersionMetaEntry(TypedDict, total=False):
     """Structure of a single entry in versions.json."""
 
-    accessed_at: str   # ISO 8601 timestamp
+    accessed_at: str  # ISO 8601 timestamp
     stem_count: int
     pinned: bool
 
@@ -71,7 +71,7 @@ class SongStorage:
         for meta in sorted(self.songs_dir.glob("*/meta.json")):
             try:
                 songs.append(Song.model_validate_json(meta.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 continue
         return songs
 
@@ -135,10 +135,12 @@ class SongStorage:
             if isinstance(data, dict):
                 return data
             return {}
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             return {}
 
-    def write_version_meta(self, song_id: str, meta: dict[str, VersionMetaEntry]) -> None:
+    def write_version_meta(
+        self, song_id: str, meta: dict[str, VersionMetaEntry]
+    ) -> None:
         """Write the versions.json sidecar."""
         path = self._version_meta_path(song_id)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -223,7 +225,7 @@ class SongStorage:
             for stem in StemName:
                 prefix = f"{stem.value}_"
                 if name.startswith(prefix):
-                    tag = name[len(prefix):]
+                    tag = name[len(prefix) :]
                     parsed = self._parse_version_tag(tag)
                     if parsed is not None:
                         versions.add(parsed)
@@ -246,7 +248,7 @@ class SongStorage:
             pitch = float(sign + inner[1:].replace("d", "."))
             tempo = float(tempo_part.replace("d", "."))
             return (pitch, tempo)
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return None
 
     def delete_version(self, song_id: str, pitch: float, tempo: float) -> int:

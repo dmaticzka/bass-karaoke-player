@@ -252,9 +252,7 @@ class TestVersionMeta:
         meta_path.write_text("{{broken json{{", encoding="utf-8")
         assert storage.read_version_meta(song.id) == {}
 
-    def test_write_and_read_version_meta_roundtrip(
-        self, storage: SongStorage
-    ) -> None:
+    def test_write_and_read_version_meta_roundtrip(self, storage: SongStorage) -> None:
         song = storage.create_song("song.mp3")
         data: dict[str, dict] = {"key": {"accessed_at": "2026-01-01T00:00:00+00:00"}}  # type: ignore[type-arg]
         storage.write_version_meta(song.id, data)

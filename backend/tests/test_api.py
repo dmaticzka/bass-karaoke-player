@@ -945,9 +945,7 @@ class TestDeleteVersion:
 class TestCreateVersion:
     """Tests for POST /api/songs/{song_id}/versions."""
 
-    def _make_ready_song(
-        self, data_dir: Path, song_id: str = "cv-song"
-    ) -> Song:
+    def _make_ready_song(self, data_dir: Path, song_id: str = "cv-song") -> Song:
         storage = SongStorage(data_dir)
         song = Song(
             id=song_id,
@@ -1066,9 +1064,7 @@ class TestCreateVersion:
 class TestListVersionsEnriched:
     """Tests for enriched GET /api/songs/{song_id}/versions response."""
 
-    def _make_ready_song(
-        self, data_dir: Path, song_id: str = "lve-song"
-    ) -> Song:
+    def _make_ready_song(self, data_dir: Path, song_id: str = "lve-song") -> Song:
         storage = SongStorage(data_dir)
         song = Song(
             id=song_id,
@@ -1267,7 +1263,9 @@ class TestGetProcessedStemTouchesVersion:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(b"RIFF" + b"\x00" * 40)
 
-        resp = client.get("/api/songs/tv-song/stems/vocals/processed?pitch=2.0&tempo=1.0")
+        resp = client.get(
+            "/api/songs/tv-song/stems/vocals/processed?pitch=2.0&tempo=1.0"
+        )
         assert resp.status_code == 200
         tag = storage._make_version_tag(2.0, 1.0)
         meta = storage.read_version_meta("tv-song")
