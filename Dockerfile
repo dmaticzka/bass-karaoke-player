@@ -14,7 +14,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.3@sha256:90bbb3c16635e9627f49eec6539f956d7
 WORKDIR /app
 
 # Install build dependencies (needed for compiled extension packages)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -25,7 +27,8 @@ COPY pyproject.toml uv.lock ./
 # Install production dependencies (including gpu extras) into /app/.venv.
 # --frozen: use uv.lock as-is; --no-dev: skip dev group; --no-install-project:
 # skip installing the app itself (it runs from source via PYTHONPATH).
-RUN uv sync --frozen --no-dev --extra gpu --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra gpu --no-install-project
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
@@ -40,7 +43,9 @@ LABEL org.opencontainers.image.source="https://github.com/dmaticzka/bass-karaoke
 #  - rubberband-cli: pitch/tempo processing
 #  - ffmpeg: audio format conversion (used by demucs)
 #  - libsndfile1: audio file I/O
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
         rubberband-cli \
         ffmpeg \
         libsndfile1 \
