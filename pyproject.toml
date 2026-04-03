@@ -45,6 +45,7 @@ dev = [
 ]
 
 [tool.uv]
+# renovate: datasource=docker depName=ghcr.io/astral-sh/uv
 required-version = "0.11.2"
 package = false
 

@@ -12,9 +12,8 @@
       "customType": "regex",
       "fileMatch": ["^pyproject\\.toml$"],
       "matchStrings": [
-        "required-version = \"(?<currentValue>[^\"]+)\""
+        "# renovate: datasource=docker depName=(?<depName>[^\\n]+)\\nrequired-version = \"(?<currentValue>[^\"]+)\""
       ],
-      "depNameTemplate": "ghcr.io/astral-sh/uv",
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     }
