@@ -63,6 +63,7 @@
 
         <div class="control-group control-group--actions">
           <button class="btn btn-primary" id="apply-btn">Apply</button>
+          <button class="btn btn-primary" id="cache-btn">Cache Version</button>
           <button class="btn btn-secondary" id="reset-btn">Reset</button>
         </div>
       </div>
@@ -89,6 +90,22 @@
         <div class="seek-row">
           <input type="range" id="seek-slider" min="0" max="100" step="0.1" value="0" />
           <span id="time-display">0:00 / 0:00</span>
+        </div>
+        <!-- A-B Loop controls -->
+        <div class="loop-controls" id="loop-controls">
+          <button class="btn btn-sm btn-secondary" id="loop-toggle-btn" title="Toggle A-B loop">⟳ A↔B</button>
+          <button class="btn btn-sm btn-secondary" id="loop-a-btn" title="Set loop start to current position" disabled>Set A</button>
+          <button class="btn btn-sm btn-secondary" id="loop-b-btn" title="Set loop end to current position" disabled>Set B</button>
+          <button class="btn btn-sm btn-secondary" id="loop-clear-btn" title="Clear loop points" disabled>Clear</button>
+          <span class="loop-display hidden" id="loop-display"></span>
+        </div>
+      </div>
+
+      <!-- Cache stats -->
+      <div class="cache-stats" id="cache-stats">
+        <span id="cache-stats-label"></span>
+        <div class="cache-stats-bar" id="cache-stats-bar">
+          <div class="cache-stats-fill" id="cache-stats-fill"></div>
         </div>
       </div>
     </section>

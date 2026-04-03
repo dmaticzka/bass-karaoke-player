@@ -11,6 +11,7 @@
 /* ---------- Constants ---------- */
 const API_BASE = "/api";
 const POLL_INTERVAL_MS = 2000;
+const MAX_SONG_STATES = 3;   // max songs kept in memory
 const STEM_COLORS = {
   drums:  "--stem-drums",
   bass:   "--stem-bass",
@@ -31,6 +32,7 @@ const state = {
   duration: 0,         // seconds
   seekTimer: null,
   pollTimer: null,
+  versionPollTimer: null,  // polls for version processing completion
   pitch: 0,
   tempo: 100,
   stemVolumes: {},     // { stemName: float 0-2 }
@@ -38,6 +40,13 @@ const state = {
   pendingProcess: false,
   activeVersion: { pitch: 0, tempo: 1.0 },  // currently loaded version
   versions: [],        // list of Version objects from API
+  // A-B loop
+  loopEnabled: false,
+  loopStart: null,     // seconds
+  loopEnd: null,       // seconds
+  // Per-song state persistence (LRU, max 3 songs)
+  songStates: {},      // { song_id: { buffers, pitch, tempo, volumes, mutes, offset, loop* } }
+  songStatesOrder: [], // LRU order of song IDs (most recent last)
 };
 
 /* ---------- DOM references ---------- */
@@ -66,6 +75,17 @@ const timeDisplay   = $("time-display");
 
 const versionsSection = $("versions-section");
 const versionsList    = $("versions-list");
+
+// Cache version & loop controls
+const cacheBtn        = $("cache-btn");
+const loopToggleBtn   = $("loop-toggle-btn");
+const loopABtn        = $("loop-a-btn");
+const loopBBtn        = $("loop-b-btn");
+const loopClearBtn    = $("loop-clear-btn");
+const loopDisplay     = $("loop-display");
+const cacheStats      = $("cache-stats");
+const cacheStatsLabel = $("cache-stats-label");
+const cacheStatsFill  = $("cache-stats-fill");
 
 /* ==========================================================================
    API helpers
@@ -137,9 +157,38 @@ async function fetchVersions(songId) {
   }
 }
 
+function startVersionPolling(songId) {
+  if (!songId || state.versionPollTimer) return;
+  state.versionPollTimer = setInterval(async () => {
+    try {
+      const data = await apiGet(`/songs/${songId}/versions`);
+      state.versions = data.versions;
+      renderVersions();
+      const hasProcessing = data.versions.some((v) => v.status === "processing" || v.status === "partial");
+      if (!hasProcessing) {
+        clearInterval(state.versionPollTimer);
+        state.versionPollTimer = null;
+      }
+    } catch (e) {
+      console.error("Version polling error:", e);
+    }
+  }, POLL_INTERVAL_MS);
+}
+
+function updateCacheStats(cachedCount) {
+  if (!cacheStats) return;
+  const maxVersions = 5; // matches MAX_VERSIONS_PER_SONG default
+  cacheStatsLabel.textContent = `Versions: ${cachedCount} / ${maxVersions}`;
+  const pct = Math.min(100, (cachedCount / maxVersions) * 100);
+  cacheStatsFill.style.width = `${pct}%`;
+  cacheStatsFill.className = "cache-stats-fill" + (cachedCount >= maxVersions ? " full" : "");
+}
+
 function renderVersions() {
   versionsList.innerHTML = "";
+  let readyCount = 0;
   for (const ver of state.versions) {
+    if (!ver.is_default) readyCount++;
     const pitchStr  = ver.pitch_semitones > 0 ? `+${ver.pitch_semitones}` : String(ver.pitch_semitones);
     const tempoStr  = `${Math.round(ver.tempo_ratio * 100)}%`;
     const label     = ver.is_default ? `Original (${tempoStr})` : `${pitchStr} st, ${tempoStr}`;
@@ -158,7 +207,24 @@ function renderVersions() {
     labelSpan.textContent = label;
     li.appendChild(labelSpan);
 
+    // Status badge for non-default versions
     if (!ver.is_default) {
+      const badge = document.createElement("span");
+      const statusText = ver.status === "processing" ? "⏳" : ver.status === "partial" ? "partial" : "";
+      if (statusText) {
+        badge.className = `version-status-badge status-${ver.status}`;
+        badge.textContent = statusText;
+        li.appendChild(badge);
+      }
+      if (ver.accessed_at) {
+        const relTime = document.createElement("span");
+        relTime.className = "version-accessed";
+        relTime.textContent = fmtRelTime(ver.accessed_at);
+        li.appendChild(relTime);
+      }
+    }
+
+    if (!ver.is_default && ver.status !== "processing") {
       const delBtn = document.createElement("button");
       delBtn.className = "version-delete-btn";
       delBtn.textContent = "✕";
@@ -170,11 +236,24 @@ function renderVersions() {
       li.appendChild(delBtn);
     }
 
-    li.addEventListener("click", () => {
-      selectVersion(ver.pitch_semitones, ver.tempo_ratio);
-    });
+    if (ver.status !== "processing") {
+      li.addEventListener("click", () => {
+        selectVersion(ver.pitch_semitones, ver.tempo_ratio);
+      });
+    }
 
     versionsList.appendChild(li);
+  }
+
+  // Update cache stats bar
+  updateCacheStats(readyCount);
+  // Start version polling if any version is still processing
+  const hasProcessing = state.versions.some((v) => v.status === "processing" || v.status === "partial");
+  if (hasProcessing && !state.versionPollTimer) {
+    startVersionPolling(state.activeSong?.id);
+  } else if (!hasProcessing && state.versionPollTimer) {
+    clearInterval(state.versionPollTimer);
+    state.versionPollTimer = null;
   }
 }
 
@@ -256,7 +335,9 @@ function renderSongList() {
     const nameEl = document.createElement("span");
     nameEl.className = "song-name";
     nameEl.title = song.filename;
-    nameEl.textContent = song.filename;
+    // Show 🎵 indicator for songs loaded in memory (but not the currently active one)
+    const isLoaded = song.id in state.songStates && song.id !== state.activeSong?.id;
+    nameEl.textContent = (isLoaded ? "🎵 " : "") + song.filename;
 
     const badge = document.createElement("span");
     badge.className = `song-status-badge status-${song.status}`;
@@ -266,9 +347,13 @@ function renderSongList() {
     actions.className = "song-actions";
 
     if (song.status === "ready") {
+      const isLoaded = song.id in state.songStates;
       const loadBtn = document.createElement("button");
       loadBtn.className = "btn btn-sm btn-primary";
-      loadBtn.textContent = "Load";
+      loadBtn.textContent = isLoaded ? "Switch To" : "Load";
+      if (isLoaded && song.id !== state.activeSong?.id) {
+        loadBtn.title = "Switch back to this loaded song";
+      }
       loadBtn.addEventListener("click", () => loadSong(song));
       actions.appendChild(loadBtn);
     }
@@ -371,26 +456,143 @@ function startPolling(songId) {
 }
 
 /* ==========================================================================
+   Per-song state persistence
+   ========================================================================== */
+
+function _saveSongState(songId) {
+  if (!songId) return;
+  const buffers = {};
+  for (const [stem, node] of Object.entries(state.stemNodes)) {
+    buffers[stem] = node.buffer;
+  }
+  const currentOffset = state.isPlaying
+    ? state.startOffset + (state.audioCtx?.currentTime ?? 0) - state.startTime
+    : state.startOffset;
+  state.songStates[songId] = {
+    buffers,
+    pitch: state.activeVersion.pitch,
+    tempo: state.activeVersion.tempo,
+    volumes: { ...state.stemVolumes },
+    mutes: { ...state.stemMuted },
+    playbackOffset: currentOffset,
+    loopEnabled: state.loopEnabled,
+    loopStart: state.loopStart,
+    loopEnd: state.loopEnd,
+  };
+  // Maintain LRU order
+  const idx = state.songStatesOrder.indexOf(songId);
+  if (idx >= 0) state.songStatesOrder.splice(idx, 1);
+  state.songStatesOrder.push(songId);
+  // Evict oldest if over limit
+  while (state.songStatesOrder.length > MAX_SONG_STATES) {
+    const oldest = state.songStatesOrder.shift();
+    if (oldest !== state.activeSong?.id) {
+      delete state.songStates[oldest];
+    }
+  }
+}
+
+async function _restoreStemNodes(song, saved) {
+  if (!state.audioCtx) {
+    state.audioCtx = new AudioContext();
+  }
+  state.stemNodes = {};
+  for (const stem of song.stems) {
+    const buffer = saved.buffers[stem];
+    if (!buffer) continue;
+    const gainNode = state.audioCtx.createGain();
+    gainNode.gain.value = state.stemMuted[stem] ? 0 : state.stemVolumes[stem];
+    gainNode.connect(state.audioCtx.destination);
+    state.stemNodes[stem] = { buffer, gainNode, source: null };
+  }
+  const durations = Object.values(state.stemNodes).map((n) => n.buffer?.duration ?? 0);
+  state.duration = Math.max(...durations, 0);
+  seekSlider.max = state.duration;
+}
+
+/* ==========================================================================
    Player – loading
    ========================================================================== */
 
 async function loadSong(song) {
-  stopAll();
+  // Save current song state before switching
+  if (state.activeSong && state.activeSong.id !== song.id) {
+    _saveSongState(state.activeSong.id);
+    stopAll();
+  } else if (!state.activeSong) {
+    stopAll();
+  }
+
+  // Stop version polling for previous song
+  if (state.versionPollTimer) {
+    clearInterval(state.versionPollTimer);
+    state.versionPollTimer = null;
+  }
+
   state.activeSong = song;
-  state.activeVersion = { pitch: 0, tempo: 1.0 };
   playerTitle.textContent = song.filename;
   playerSection.classList.remove("hidden");
 
-  // Reset controls
+  // Check if we have saved state for this song
+  const saved = state.songStates[song.id];
+  if (saved && saved.buffers && Object.keys(saved.buffers).length > 0) {
+    // Restore from saved state
+    state.activeVersion = { pitch: saved.pitch, tempo: saved.tempo };
+    state.pitch = saved.pitch;
+    state.tempo = Math.round(saved.tempo * 100);
+    pitchSlider.value = saved.pitch;
+    pitchValue.textContent = String(saved.pitch);
+    tempoSlider.value = Math.round(saved.tempo * 100);
+    tempoValue.textContent = `${Math.round(saved.tempo * 100)}%`;
+    state.startOffset = saved.playbackOffset;
+    state.loopEnabled = saved.loopEnabled;
+    state.loopStart = saved.loopStart;
+    state.loopEnd = saved.loopEnd;
+
+    renderStemCards(song.stems);
+    // Restore volumes & mutes
+    for (const stem of song.stems) {
+      state.stemVolumes[stem] = saved.volumes[stem] ?? 1.0;
+      state.stemMuted[stem] = saved.mutes[stem] ?? false;
+      const slider = stemsGrid.querySelector(`.stem-vol-slider[data-stem="${stem}"]`);
+      const output = stemsGrid.querySelector(`.stem-vol-output[data-stem="${stem}"]`);
+      const muteBtn = stemsGrid.querySelector(`.stem-mute-btn[data-stem="${stem}"]`);
+      if (slider) slider.value = Math.round(state.stemVolumes[stem] * 100);
+      if (output) output.textContent = `${Math.round(state.stemVolumes[stem] * 100)}%`;
+      if (muteBtn) {
+        muteBtn.textContent = state.stemMuted[stem] ? "🔇" : "🔊";
+        muteBtn.classList.toggle("muted", state.stemMuted[stem]);
+      }
+    }
+
+    renderSongList();
+    updateLoopUI();
+    setLoadingState(true);
+    try {
+      // Re-wire audio nodes from saved buffers
+      await _restoreStemNodes(song, saved);
+      await fetchVersions(song.id);
+    } finally {
+      setLoadingState(false);
+    }
+    return;
+  }
+
+  // Fresh load
+  state.activeVersion = { pitch: 0, tempo: 1.0 };
   pitchSlider.value = 0;
   pitchValue.textContent = "0";
   tempoSlider.value = 100;
   tempoValue.textContent = "100%";
   state.pitch = 0;
   state.tempo = 100;
+  state.loopEnabled = false;
+  state.loopStart = null;
+  state.loopEnd = null;
+  updateLoopUI();
 
   renderStemCards(song.stems);
-  renderSongList(); // update active highlight
+  renderSongList();
 
   setLoadingState(true);
   try {
@@ -520,6 +722,78 @@ seekSlider.addEventListener("input", () => {
   }
 });
 
+/* ---------- A-B loop ---------- */
+
+loopToggleBtn.addEventListener("click", () => {
+  state.loopEnabled = !state.loopEnabled;
+  if (state.loopEnabled && state.loopStart === null) {
+    state.loopStart = 0;
+    state.loopEnd = state.duration;
+  }
+  updateLoopUI();
+  if (state.isPlaying) {
+    const offset = state.startOffset + (state.audioCtx.currentTime - state.startTime);
+    stopSources();
+    state.startOffset = offset;
+    state.startTime = state.audioCtx?.currentTime ?? 0;
+    playAll(offset);
+  }
+});
+
+loopABtn.addEventListener("click", () => {
+  const pos = state.isPlaying
+    ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
+    : state.startOffset;
+  state.loopStart = Math.min(pos, state.loopEnd ?? state.duration);
+  updateLoopUI();
+  if (state.isPlaying) {
+    stopSources();
+    playAll(state.loopStart);
+  }
+});
+
+loopBBtn.addEventListener("click", () => {
+  const pos = state.isPlaying
+    ? state.startOffset + (state.audioCtx.currentTime - state.startTime)
+    : state.startOffset;
+  state.loopEnd = Math.max(pos, state.loopStart ?? 0);
+  updateLoopUI();
+  if (state.isPlaying) {
+    const offset = Math.min(state.startOffset, state.loopEnd);
+    stopSources();
+    playAll(offset);
+  }
+});
+
+loopClearBtn.addEventListener("click", () => {
+  state.loopEnabled = false;
+  state.loopStart = null;
+  state.loopEnd = null;
+  updateLoopUI();
+  if (state.isPlaying) {
+    const offset = state.startOffset + (state.audioCtx.currentTime - state.startTime);
+    stopSources();
+    state.startOffset = offset;
+    state.startTime = state.audioCtx?.currentTime ?? 0;
+    playAll(offset);
+  }
+});
+
+function updateLoopUI() {
+  const active = state.loopEnabled;
+  loopToggleBtn.classList.toggle("btn-primary", active);
+  loopToggleBtn.classList.toggle("btn-secondary", !active);
+  loopABtn.disabled = !active;
+  loopBBtn.disabled = !active;
+  loopClearBtn.disabled = !active;
+  if (active && state.loopStart !== null && state.loopEnd !== null) {
+    loopDisplay.textContent = `A: ${fmtTime(state.loopStart)} – B: ${fmtTime(state.loopEnd)}`;
+    loopDisplay.classList.remove("hidden");
+  } else {
+    loopDisplay.classList.add("hidden");
+  }
+}
+
 function togglePlay() {
   if (state.isPlaying) {
     pauseAll();
@@ -536,12 +810,23 @@ function playAll(offset = 0) {
     const source = state.audioCtx.createBufferSource();
     source.buffer = node.buffer;
     source.connect(node.gainNode);
-    source.start(0, offset);
+    if (state.loopEnabled && state.loopStart !== null && state.loopEnd !== null) {
+      source.loop = true;
+      source.loopStart = state.loopStart;
+      source.loopEnd = state.loopEnd;
+      // Clamp offset to loop region
+      const startFrom = Math.max(state.loopStart, Math.min(offset, state.loopEnd));
+      source.start(0, startFrom);
+    } else {
+      source.start(0, offset);
+    }
     source.onended = () => { if (stem === Object.keys(state.stemNodes)[0]) onPlaybackEnded(); };
     node.source = source;
   }
 
-  state.startOffset = offset;
+  state.startOffset = (state.loopEnabled && state.loopStart !== null)
+    ? Math.max(state.loopStart, Math.min(offset, state.loopEnd ?? state.duration))
+    : offset;
   state.startTime   = state.audioCtx.currentTime;
   state.isPlaying   = true;
   playPauseBtn.textContent = "⏸ Pause";
@@ -584,6 +869,14 @@ function startSeekTimer() {
   state.seekTimer = setInterval(() => {
     if (!state.isPlaying) return;
     const elapsed = state.startOffset + (state.audioCtx.currentTime - state.startTime);
+    // When loop is enabled, clamp to loop end and display loop region
+    if (state.loopEnabled && state.loopEnd !== null && elapsed >= state.loopEnd) {
+      // AudioBufferSourceNode handles the actual looping; just clamp display
+      const clamped = state.loopEnd;
+      seekSlider.value = clamped;
+      timeDisplay.textContent = `${fmtTime(clamped)} / ${fmtTime(state.duration)}`;
+      return;
+    }
     const clamped = Math.min(elapsed, state.duration);
     seekSlider.value = clamped;
     timeDisplay.textContent = `${fmtTime(clamped)} / ${fmtTime(state.duration)}`;
@@ -624,8 +917,6 @@ applyBtn.addEventListener("click", async () => {
 
   applyBtn.disabled = true;
   applyBtn.textContent = "Processing…";
-  // setLoadingState covers play/reset/stems; applyBtn is managed separately
-  // so it can show its own "Processing…" label during server-side generation.
   setLoadingState(true);
 
   try {
@@ -641,6 +932,46 @@ applyBtn.addEventListener("click", async () => {
     setLoadingState(false);
     applyBtn.disabled = false;
     applyBtn.textContent = "Apply";
+  }
+});
+
+cacheBtn.addEventListener("click", async () => {
+  if (!state.activeSong || state.isLoading) return;
+  const pitchSemitones = state.pitch;
+  const tempoRatio = state.tempo / 100;
+
+  cacheBtn.disabled = true;
+  cacheBtn.textContent = "Caching…";
+  try {
+    const result = await apiPost(`/songs/${state.activeSong.id}/versions`, {
+      pitch_semitones: pitchSemitones,
+      tempo_ratio: tempoRatio,
+    });
+    if (result.status === "ready") {
+      // Already cached – just switch to it
+      await fetchVersions(state.activeSong.id);
+      await selectVersion(pitchSemitones, tempoRatio);
+    } else {
+      // Processing in background – add optimistic entry and start polling
+      const optimistic = {
+        pitch_semitones: pitchSemitones,
+        tempo_ratio: tempoRatio,
+        is_default: false,
+        status: "processing",
+        stem_count: 0,
+        accessed_at: null,
+      };
+      state.versions = [...state.versions.filter(
+        (v) => !(v.pitch_semitones === pitchSemitones && v.tempo_ratio === tempoRatio)
+      ), optimistic];
+      renderVersions();
+      startVersionPolling(state.activeSong.id);
+    }
+  } catch (e) {
+    alert(`Caching failed: ${e.message}`);
+  } finally {
+    cacheBtn.disabled = false;
+    cacheBtn.textContent = "Cache Version";
   }
 });
 
@@ -679,6 +1010,20 @@ function fmtTime(secs) {
   return `${m}:${s}`;
 }
 
+function fmtRelTime(isoStr) {
+  try {
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  } catch {
+    return "";
+  }
+}
+
 /* ==========================================================================
    Refresh button & initial load
    ========================================================================== */
@@ -686,5 +1031,6 @@ function fmtTime(secs) {
 refreshBtn.addEventListener("click", refreshSongList);
 
 document.addEventListener("DOMContentLoaded", () => {
+  updateLoopUI();
   refreshSongList();
 });
