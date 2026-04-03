@@ -21,7 +21,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.14"
+          version-file: pyproject.toml
 
       - name: Install dev dependencies
         run: uv sync --group dev --frozen
@@ -45,7 +45,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.14"
+          version-file: pyproject.toml
 
       - name: Install dev dependencies
         run: uv sync --group dev --frozen
@@ -78,7 +78,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.14"
+          version-file: pyproject.toml
 
       - name: Install dev dependencies
         run: uv sync --group dev --frozen
