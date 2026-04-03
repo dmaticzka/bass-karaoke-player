@@ -47,11 +47,14 @@ def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 
 class TestFrontendRoutes:
-    def test_root_serves_index_html(self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_root_serves_index_html(
+        self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         frontend_dir = tmp_path / "frontend"
         frontend_dir.mkdir()
         (frontend_dir / "index.html").write_text("<html><body>Classic</body></html>")
         import backend.app.main as main_module
+
         monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
         main_module.storage = SongStorage(data_dir)
         main_module.splitter = MagicMock()
@@ -61,13 +64,16 @@ class TestFrontendRoutes:
         assert resp.status_code == 200
         assert "Classic" in resp.text
 
-    def test_lit_route_serves_lit_index(self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_lit_route_serves_lit_index(
+        self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         frontend_dir = tmp_path / "frontend"
         lit_dir = frontend_dir / "lit"
         lit_dir.mkdir(parents=True)
         (frontend_dir / "index.html").write_text("<html><body>Classic</body></html>")
         (lit_dir / "index.html").write_text("<html><body>Lit UI</body></html>")
         import backend.app.main as main_module
+
         monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
         main_module.storage = SongStorage(data_dir)
         main_module.splitter = MagicMock()
@@ -77,13 +83,16 @@ class TestFrontendRoutes:
         assert resp.status_code == 200
         assert "Lit UI" in resp.text
 
-    def test_lit_trailing_slash_serves_lit_index(self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_lit_trailing_slash_serves_lit_index(
+        self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         frontend_dir = tmp_path / "frontend"
         lit_dir = frontend_dir / "lit"
         lit_dir.mkdir(parents=True)
         (frontend_dir / "index.html").write_text("<html></html>")
         (lit_dir / "index.html").write_text("<html><body>Lit UI</body></html>")
         import backend.app.main as main_module
+
         monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
         main_module.storage = SongStorage(data_dir)
         main_module.splitter = MagicMock()
@@ -93,11 +102,14 @@ class TestFrontendRoutes:
         assert resp.status_code == 200
         assert "Lit UI" in resp.text
 
-    def test_lit_route_missing_returns_404(self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_lit_route_missing_returns_404(
+        self, tmp_path: Path, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         frontend_dir = tmp_path / "frontend_no_lit"
         frontend_dir.mkdir()
         (frontend_dir / "index.html").write_text("<html></html>")
         import backend.app.main as main_module
+
         monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
         main_module.storage = SongStorage(data_dir)
         main_module.splitter = MagicMock()

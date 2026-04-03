@@ -137,9 +137,7 @@ def create_app() -> FastAPI:
         async def serve_lit() -> FileResponse:
             index = FRONTEND_DIR / "lit" / "index.html"
             if not index.is_file():
-                raise HTTPException(
-                    status_code=404, detail="Lit frontend not found."
-                )
+                raise HTTPException(status_code=404, detail="Lit frontend not found.")
             return FileResponse(str(index))
 
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
