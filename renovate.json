@@ -10,7 +10,9 @@
     {
       "description": "Track uv required-version in pyproject.toml as the same package pinned in the Dockerfile",
       "customType": "regex",
-      "fileMatch": ["^pyproject\\.toml$"],
+      "managerFilePatterns": [
+        "/^pyproject\.toml$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=docker depName=(?<depName>[^\\n]+)\\nrequired-version = \"(?<currentValue>[^\"]+)\""
       ],
