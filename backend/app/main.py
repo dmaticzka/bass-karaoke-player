@@ -7,6 +7,7 @@ import os
 import shutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -16,6 +17,8 @@ from backend.app.audio_processor import (
     StemSplitter,
 )
 from backend.app.models import (
+    BulkProcessRequest,
+    BulkProcessResponse,
     ErrorResponse,
     ProcessRequest,
     ProcessResponse,
@@ -25,6 +28,7 @@ from backend.app.models import (
     StemName,
     Version,
     VersionListResponse,
+    VersionStatus,
 )
 from backend.app.storage import SongStorage
 from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, UploadFile
@@ -43,6 +47,8 @@ FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
+MAX_VERSIONS_PER_SONG = int(os.getenv("MAX_VERSIONS_PER_SONG", "5"))
+MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
 
 # ---------------------------------------------------------------------------
 # Shared state
@@ -182,6 +188,41 @@ def _split_song_task(song_id: str) -> None:
 
     storage.update_status(song_id, SongStatus.READY, stems=available)
     logger.info("Stem splitting complete for %s", song_id)
+
+
+def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
+    """Background task: rubberband-process all stems for the given pitch/tempo pair."""
+    song = storage.load_song(song_id)
+    if song is None:
+        logger.error("process_version_task: song %s not found", song_id)
+        return
+
+    for stem_name in song.stems:
+        stem = StemName(stem_name)
+        input_path = storage.stem_path(song_id, stem)
+        if not input_path.exists():
+            logger.warning(
+                "process_version_task: stem file missing for %s/%s", song_id, stem
+            )
+            return
+        output_path = storage.processed_path(song_id, stem, pitch, tempo)
+        if not output_path.exists():
+            try:
+                processor.process(
+                    input_path,
+                    output_path,
+                    pitch_semitones=pitch,
+                    tempo_ratio=tempo,
+                )
+            except AudioProcessorError:
+                logger.exception(
+                    "process_version_task: processing failed for %s/%s", song_id, stem
+                )
+                return
+
+    storage.touch_version(song_id, pitch, tempo)
+    storage.evict_lru_versions(song_id, MAX_VERSIONS_PER_SONG)
+    logger.info("Version (pitch=%s, tempo=%s) ready for song %s", pitch, tempo, song_id)
 
 
 # ---------------------------------------------------------------------------
@@ -379,6 +420,7 @@ def _song_router() -> APIRouter:
                     status_code=500, detail="Audio processing failed"
                 ) from exc
 
+        storage.touch_version(song_id, pitch, tempo)
         return FileResponse(output_path, media_type="audio/mpeg")
 
     @router.get(
@@ -397,12 +439,82 @@ def _song_router() -> APIRouter:
         """
         _require_ready_song(song_id)
         pairs = storage.list_versions(song_id)
+        meta = storage.read_version_meta(song_id)
         versions: list[Version] = [
-            Version(pitch_semitones=0.0, tempo_ratio=1.0, is_default=True)
+            Version(
+                pitch_semitones=0.0,
+                tempo_ratio=1.0,
+                is_default=True,
+                status=VersionStatus.READY,
+                stem_count=4,
+            )
         ]
         for pitch, tempo in pairs:
-            versions.append(Version(pitch_semitones=pitch, tempo_ratio=tempo))
+            tag = storage._make_version_tag(pitch, tempo)
+            entry = meta.get(tag, {})
+            vstatus = storage.version_status(song_id, pitch, tempo)
+            stem_count = sum(
+                1
+                for stem in StemName
+                if storage.processed_path(song_id, stem, pitch, tempo).exists()
+            )
+            accessed_at = None
+            raw_at = entry.get("accessed_at")
+            if raw_at:
+                try:
+                    accessed_at = datetime.fromisoformat(str(raw_at))
+                except ValueError:
+                    pass
+            versions.append(
+                Version(
+                    pitch_semitones=pitch,
+                    tempo_ratio=tempo,
+                    is_default=False,
+                    status=vstatus,
+                    stem_count=stem_count,
+                    accessed_at=accessed_at,
+                )
+            )
         return VersionListResponse(versions=versions)
+
+    @router.post(
+        "/songs/{song_id}/versions",
+        response_model=BulkProcessResponse,
+        responses={
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+        },
+    )
+    async def create_version(
+        song_id: str,
+        params: BulkProcessRequest,
+        background_tasks: BackgroundTasks,
+    ) -> BulkProcessResponse:
+        """Pre-cache all stems for the given pitch/tempo pair in the background.
+
+        Idempotent: returns status "ready" immediately if all stems already exist.
+        If only some stems are cached (partial), reprocesses only the missing ones.
+        """
+        _require_ready_song(song_id)
+        vstatus = storage.version_status(
+            song_id, params.pitch_semitones, params.tempo_ratio
+        )
+        if vstatus == VersionStatus.READY:
+            return BulkProcessResponse(
+                song_id=song_id,
+                pitch_semitones=params.pitch_semitones,
+                tempo_ratio=params.tempo_ratio,
+                status="ready",
+            )
+        background_tasks.add_task(
+            _process_version_task, song_id, params.pitch_semitones, params.tempo_ratio
+        )
+        return BulkProcessResponse(
+            song_id=song_id,
+            pitch_semitones=params.pitch_semitones,
+            tempo_ratio=params.tempo_ratio,
+            status="processing",
+        )
 
     @router.delete(
         "/songs/{song_id}/versions",
@@ -436,6 +548,14 @@ def _song_router() -> APIRouter:
     async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "ok"}
+
+    @router.get("/config")
+    async def get_config() -> dict[str, int]:
+        """Return server-side configuration values useful to the frontend."""
+        return {
+            "max_versions_per_song": MAX_VERSIONS_PER_SONG,
+            "max_versions_global": MAX_VERSIONS_GLOBAL,
+        }
 
     return router
 

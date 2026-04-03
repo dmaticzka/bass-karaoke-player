@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -89,18 +91,45 @@ class ProcessResponse(BaseModel):
     output_path: str
 
 
+class VersionStatus(StrEnum):
+    """Readiness state of a pre-calculated version."""
+
+    READY = "ready"
+    PARTIAL = "partial"
+    MISSING = "missing"
+
+
 class Version(BaseModel):
     """A pre-calculated pitch/tempo version of a song."""
 
     pitch_semitones: float
     tempo_ratio: float
     is_default: bool = False
+    status: VersionStatus = VersionStatus.READY
+    stem_count: int = 4
+    accessed_at: datetime | None = None
 
 
 class VersionListResponse(BaseModel):
     """Response containing a list of pre-calculated versions."""
 
     versions: list[Version]
+
+
+class BulkProcessRequest(BaseModel):
+    """Request body for bulk-processing all stems at a given pitch/tempo."""
+
+    pitch_semitones: float = Field(default=0.0, ge=-12.0, le=12.0)
+    tempo_ratio: float = Field(default=1.0, ge=0.25, le=4.0)
+
+
+class BulkProcessResponse(BaseModel):
+    """Response after triggering a bulk version pre-cache."""
+
+    song_id: str
+    pitch_semitones: float
+    tempo_ratio: float
+    status: Literal["processing", "ready"]
 
 
 class ErrorResponse(BaseModel):

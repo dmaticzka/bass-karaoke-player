@@ -391,6 +391,78 @@ footer {
 }
 #time-display { font-size: 0.9rem; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }
 
+/* ---------- Version status badges ---------- */
+.version-status-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.version-status-badge.status-processing {
+  background: #854d0e;
+  color: #fef9c3;
+  animation: stem-pulse 1.2s ease-in-out infinite;
+}
+
+.version-status-badge.status-partial {
+  background: #713f12;
+  color: #fef9c3;
+}
+
+.version-accessed {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+/* ---------- A-B Loop controls ---------- */
+.loop-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.loop-display {
+  font-size: 0.85rem;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ---------- Cache stats ---------- */
+.cache-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.cache-stats-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cache-stats-fill {
+  height: 100%;
+  background: var(--color-accent2);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.cache-stats-fill.full {
+  background: var(--color-accent);
+}
+
 /* ---------- Loading / transition states ---------- */
 .btn:disabled {
   opacity: 0.5;
