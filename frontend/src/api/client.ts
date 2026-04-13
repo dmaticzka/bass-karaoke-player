@@ -90,7 +90,4 @@ export const api = {
 
   processedStemUrl: (songId: string, stem: StemName, pitch: number, tempo: number) =>
     `${API_BASE}/songs/${songId}/stems/${stem}/processed?pitch=${pitch}&tempo=${tempo}`,
-
-  getVersions2: (songId: string) =>
-    get<VersionListResponse>(`/songs/${songId}/versions`),
 };

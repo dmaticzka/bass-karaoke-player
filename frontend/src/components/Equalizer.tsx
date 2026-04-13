@@ -188,7 +188,6 @@ export function Equalizer() {
               max={12}
               step={0.5}
               value={band.gain}
-            {...({ orient: "vertical" } as Record<string, unknown>)}
               aria-label={`${band.label} EQ`}
               onChange={(e) => handleBandChange(i, Number(e.target.value))}
             />
