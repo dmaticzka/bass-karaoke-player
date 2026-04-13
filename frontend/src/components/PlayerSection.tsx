@@ -216,6 +216,7 @@ export function PlayerSection() {
   };
 
   // -----------------------------------------------------------------------
+  // Loop controls
   // -----------------------------------------------------------------------
   const handleLoopToggle = () => {
     const newEnabled = !loopEnabled;

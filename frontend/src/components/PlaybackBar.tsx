@@ -134,7 +134,16 @@ export function PlaybackBar({
           onClick={onPlayPause}
           aria-label={isPlaying ? "Pause" : "Play all stems"}
         >
-          {isLoading ? "⏳" : isPlaying ? <Pause size={22} /> : <Play size={22} />}
+          {isLoading ? (
+            <>
+              <span aria-hidden="true">⏳</span>
+              <span className="sr-only">Loading…</span>
+            </>
+          ) : isPlaying ? (
+            <Pause size={22} />
+          ) : (
+            <Play size={22} />
+          )}
         </button>
         <button
           id="stop-btn"
