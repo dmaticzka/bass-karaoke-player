@@ -152,10 +152,12 @@ export function PlayerSection() {
       if (!s.isPlaying) return;
       if (s.loopEnabled && s.loopEnd !== null && elapsed >= s.loopEnd) {
         setStartOffset(s.loopEnd);
+        setStartTime(eng.currentTime());
         return;
       }
       const clamped = Math.min(elapsed, s.duration);
       setStartOffset(clamped);
+      setStartTime(eng.currentTime());
     });
   };
 
