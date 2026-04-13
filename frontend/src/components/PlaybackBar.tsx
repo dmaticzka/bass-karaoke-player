@@ -1,13 +1,77 @@
+import { Pause, Play, Square } from "lucide-react";
 import { usePlayerStore } from "../store/playerStore";
 
 interface Props {
   onPlayPause: () => void;
   onStop: () => void;
   onSeek: (val: number) => void;
+  onSeekRelative: (delta: number) => void;
   onLoopToggle: () => void;
   onLoopSetA: () => void;
   onLoopSetB: () => void;
   onLoopClear: () => void;
+}
+
+function SkipBackIcon({ seconds }: { seconds: number }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <polyline points="3 3 3 8 8 8" />
+      <text
+        x="13"
+        y="16"
+        textAnchor="middle"
+        fontSize="7"
+        fill="currentColor"
+        stroke="none"
+        fontFamily="sans-serif"
+        fontWeight="bold"
+      >
+        {seconds}
+      </text>
+    </svg>
+  );
+}
+
+function SkipForwardIcon({ seconds }: { seconds: number }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <polyline points="21 3 21 8 16 8" />
+      <text
+        x="11"
+        y="16"
+        textAnchor="middle"
+        fontSize="7"
+        fill="currentColor"
+        stroke="none"
+        fontFamily="sans-serif"
+        fontWeight="bold"
+      >
+        {seconds}
+      </text>
+    </svg>
+  );
 }
 
 function fmtTime(secs: number): string {
@@ -23,6 +87,7 @@ export function PlaybackBar({
   onPlayPause,
   onStop,
   onSeek,
+  onSeekRelative,
   onLoopToggle,
   onLoopSetA,
   onLoopSetB,
@@ -47,13 +112,29 @@ export function PlaybackBar({
     <div className="playback-controls">
       <div className="playback-buttons">
         <button
+          className="btn btn-secondary"
+          onClick={() => onSeekRelative(-30)}
+          aria-label="Skip back 30 seconds"
+          title="Skip back 30 s"
+        >
+          <SkipBackIcon seconds={30} />
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => onSeekRelative(-15)}
+          aria-label="Skip back 15 seconds"
+          title="Skip back 15 s"
+        >
+          <SkipBackIcon seconds={15} />
+        </button>
+        <button
           id="play-pause-btn"
           className="btn btn-primary btn-lg"
           disabled={isLoading}
           onClick={onPlayPause}
           aria-label={isPlaying ? "Pause" : "Play all stems"}
         >
-          {isLoading ? "⏳ Loading…" : isPlaying ? "⏸ Pause" : "▶ Play All"}
+          {isLoading ? "⏳" : isPlaying ? <Pause size={22} /> : <Play size={22} />}
         </button>
         <button
           id="stop-btn"
@@ -61,7 +142,23 @@ export function PlaybackBar({
           onClick={onStop}
           aria-label="Stop playback"
         >
-          ■ Stop
+          <Square size={22} />
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => onSeekRelative(15)}
+          aria-label="Skip forward 15 seconds"
+          title="Skip forward 15 s"
+        >
+          <SkipForwardIcon seconds={15} />
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => onSeekRelative(30)}
+          aria-label="Skip forward 30 seconds"
+          title="Skip forward 30 s"
+        >
+          <SkipForwardIcon seconds={30} />
         </button>
       </div>
 

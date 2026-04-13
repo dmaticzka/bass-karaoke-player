@@ -206,8 +206,16 @@ export function PlayerSection() {
     }
   };
 
+  const handleSeekRelative = (delta: number) => {
+    const s = usePlayerStore.getState();
+    const current = s.isPlaying
+      ? s.startOffset + (eng.currentTime() - s.startTime)
+      : s.startOffset;
+    const newPos = Math.max(0, Math.min(current + delta, s.duration));
+    handleSeek(newPos);
+  };
+
   // -----------------------------------------------------------------------
-  // Loop controls
   // -----------------------------------------------------------------------
   const handleLoopToggle = () => {
     const newEnabled = !loopEnabled;
@@ -415,6 +423,7 @@ export function PlayerSection() {
         onPlayPause={handlePlayPause}
         onStop={handleStop}
         onSeek={handleSeek}
+        onSeekRelative={handleSeekRelative}
         onLoopToggle={handleLoopToggle}
         onLoopSetA={handleLoopSetA}
         onLoopSetB={handleLoopSetB}
