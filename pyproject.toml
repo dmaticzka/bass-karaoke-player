@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "fastapi==0.135.3",
     "uvicorn[standard]==0.42.0",
-    "python-multipart==0.0.22",
+    "python-multipart==0.0.24",
     "aiofiles==25.1.0",
     "pydantic==2.12.5",
     "demucs==4.0.1",
