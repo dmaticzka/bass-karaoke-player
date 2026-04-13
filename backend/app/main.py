@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
-FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend"))
+FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend/dist"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
