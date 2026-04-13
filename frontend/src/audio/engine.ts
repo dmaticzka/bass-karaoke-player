@@ -10,6 +10,7 @@ export interface StemNode {
   gainNode: GainNode;
   eqNodes: BiquadFilterNode[];
   source: AudioBufferSourceNode | null;
+  eqBypassed: boolean;
 }
 
 interface Engine {
@@ -70,8 +71,29 @@ export function wireStemNode(stem: StemName, buffer: AudioBuffer, vol: number, e
   const gainNode = ctx.createGain();
   gainNode.gain.value = vol;
   const eqNodes = buildEqChain(ctx, eqBands);
-  connectEqChain(ctx, gainNode, eqNodes);
-  engine.stemNodes[stem] = { buffer, gainNode, eqNodes, source: null };
+  const allFlat = eqBands.every((b) => Math.abs(b.gain) < 0.001);
+  if (allFlat) {
+    gainNode.connect(ctx.destination);
+  } else {
+    connectEqChain(ctx, gainNode, eqNodes);
+  }
+  engine.stemNodes[stem] = { buffer, gainNode, eqNodes, source: null, eqBypassed: allFlat };
+}
+
+function rewireEq(stem: StemName, bypass: boolean): void {
+  const node = engine.stemNodes[stem];
+  const ctx = engine.ctx;
+  if (!node || !ctx || node.eqBypassed === bypass) return;
+  // disconnect() severs gainNode's outputs only (not the source→gainNode input).
+  // The reconnect happens synchronously in the same JS task, so the audio
+  // rendering thread never observes an intermediate disconnected state.
+  node.gainNode.disconnect();
+  if (bypass) {
+    node.gainNode.connect(ctx.destination);
+  } else {
+    connectEqChain(ctx, node.gainNode, node.eqNodes);
+  }
+  node.eqBypassed = bypass;
 }
 
 export function applyGain(stem: StemName, value: number): void {
@@ -86,6 +108,8 @@ export function applyEqBand(stem: StemName, bandIndex: number, gainDb: number): 
   const node = engine.stemNodes[stem];
   if (node?.eqNodes[bandIndex]) {
     node.eqNodes[bandIndex]!.gain.value = gainDb;
+    const allFlat = node.eqNodes.every((n) => Math.abs(n.gain.value) < 0.001);
+    rewireEq(stem, allFlat);
   }
 }
 
