@@ -125,7 +125,14 @@ def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str, None, 
     env = {
         **os.environ,
         "DATA_DIR": str(e2e_data_dir),
-        "FRONTEND_DIR": str(_REPO_ROOT / "frontend"),
+        # Prefer pre-built dist (CI sets FRONTEND_DIR; fall back to source for
+        # local dev when dist hasn't been built yet).
+        "FRONTEND_DIR": os.environ.get(
+            "FRONTEND_DIR",
+            str(_REPO_ROOT / "frontend" / "dist")
+            if (_REPO_ROOT / "frontend" / "dist").is_dir()
+            else str(_REPO_ROOT / "frontend"),
+        ),
         "PYTHONPATH": str(_REPO_ROOT),
     }
     proc = subprocess.Popen(

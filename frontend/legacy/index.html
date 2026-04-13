@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bass Karaoke Player</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🎵 Bass Karaoke Player</h1>
+    <p class="subtitle">Stem-splitting music player powered by demucs &amp; rubberband</p>
+  </header>
+
+  <main class="container">
+
+    <!-- Upload Section -->
+    <section class="card" id="upload-section">
+      <h2>Upload Song</h2>
+      <div class="upload-area" id="drop-zone">
+        <p>Drag &amp; drop an audio file here, or click to select</p>
+        <p class="hint">Supported: MP3, WAV, FLAC, OGG, M4A, AAC · Max 300 MB</p>
+        <input type="file" id="file-input" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac" hidden />
+        <button class="btn btn-primary" id="browse-btn">Browse Files</button>
+      </div>
+      <div id="upload-progress" class="upload-progress hidden">
+        <progress id="upload-bar" value="0" max="100"></progress>
+        <span id="upload-status"></span>
+      </div>
+    </section>
+
+    <!-- Song List -->
+    <section class="card" id="songs-section">
+      <h2>Songs
+        <button class="btn btn-sm btn-secondary" id="refresh-btn" title="Refresh song list">↻</button>
+      </h2>
+      <ul class="song-list" id="song-list">
+        <li class="empty-msg">No songs uploaded yet.</li>
+      </ul>
+    </section>
+
+    <!-- Player Section -->
+    <section class="card hidden" id="player-section">
+      <h2 id="player-title">Now Playing</h2>
+
+      <!-- Global Controls -->
+      <div class="global-controls">
+        <div class="control-group">
+          <label for="pitch-slider">Pitch (semitones)</label>
+          <div class="slider-row">
+            <input type="range" id="pitch-slider" min="-12" max="12" step="1" value="0" />
+            <output id="pitch-value">0</output>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label for="tempo-slider">Tempo (%)</label>
+          <div class="slider-row">
+            <input type="range" id="tempo-slider" min="25" max="200" step="1" value="100" />
+            <output id="tempo-value">100%</output>
+          </div>
+        </div>
+
+        <div class="control-group control-group--actions">
+          <button class="btn btn-primary" id="apply-btn">Apply</button>
+          <button class="btn btn-primary" id="cache-btn">Cache Version</button>
+          <button class="btn btn-secondary" id="reset-btn">Reset</button>
+        </div>
+      </div>
+
+      <!-- Versions -->
+      <div class="versions-section" id="versions-section">
+        <h3>Versions</h3>
+        <ul class="versions-list" id="versions-list">
+          <!-- populated dynamically -->
+        </ul>
+      </div>
+
+      <!-- Stem Controls -->
+      <div class="stems-grid" id="stems-grid">
+        <!-- populated dynamically -->
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="playback-controls">
+        <div class="playback-buttons">
+          <button class="btn btn-primary btn-lg" id="play-pause-btn" aria-label="Play all stems">▶ Play All</button>
+          <button class="btn btn-secondary btn-lg" id="stop-btn" aria-label="Stop playback">■ Stop</button>
+        </div>
+        <div class="seek-row">
+          <input type="range" id="seek-slider" min="0" max="100" step="0.1" value="0" />
+          <span id="time-display">0:00 / 0:00</span>
+        </div>
+        <!-- A-B Loop controls -->
+        <div class="loop-controls" id="loop-controls">
+          <button class="btn btn-sm btn-secondary" id="loop-toggle-btn" title="Toggle A-B loop">⟳ A↔B</button>
+          <button class="btn btn-sm btn-secondary" id="loop-a-btn" title="Set loop start to current position" disabled>Set A</button>
+          <button class="btn btn-sm btn-secondary" id="loop-b-btn" title="Set loop end to current position" disabled>Set B</button>
+          <button class="btn btn-sm btn-secondary" id="loop-clear-btn" title="Clear loop points" disabled>Clear</button>
+          <span class="loop-display hidden" id="loop-display"></span>
+        </div>
+      </div>
+
+      <!-- Cache stats -->
+      <div class="cache-stats" id="cache-stats">
+        <span id="cache-stats-label"></span>
+        <div class="cache-stats-bar" id="cache-stats-bar">
+          <div class="cache-stats-fill" id="cache-stats-fill"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Bass Karaoke Player — powered by
+      <a href="https://github.com/adefossez/demucs" target="_blank" rel="noopener">demucs</a>
+      &amp;
+      <a href="https://github.com/breakfastquay/rubberband" target="_blank" rel="noopener">rubberband</a>
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

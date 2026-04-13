@@ -16,7 +16,7 @@ services:
       - karaoke_models:/models
     environment:
       - DATA_DIR=/data
-      - FRONTEND_DIR=/app/frontend
+      - FRONTEND_DIR=/app/frontend-dist
       - TORCH_HOME=/models
       - DEMUCS_JOBS=4
     restart: unless-stopped

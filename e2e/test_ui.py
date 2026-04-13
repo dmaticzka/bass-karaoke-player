@@ -35,7 +35,7 @@ class TestPageLoad:
     def test_player_hidden_initially(self, page: Page) -> None:
         page.goto("/")
         player = page.locator("#player-section")
-        # The player card starts with class "card hidden"
+        # The player section starts with class "card hidden"
         expect(player).to_have_class("card hidden")
 
     def test_pitch_slider_present(self, page: Page) -> None:
@@ -115,3 +115,53 @@ class TestPlayerSection:
         expect(loaded_player.locator("#tempo-slider")).to_be_visible()
         expect(loaded_player.locator("#apply-btn")).to_be_visible()
         expect(loaded_player.locator("#reset-btn")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# Equalizer
+# ---------------------------------------------------------------------------
+
+
+class TestEqualizer:
+    @pytest.fixture()
+    def eq_panel(self, page: Page, ready_song_id: str) -> Page:
+        """Navigate to the app, load a song, then open the EQ tab."""
+        page.goto("/")
+        load_btn = page.locator(".song-item .btn-primary").first
+        expect(load_btn).to_be_visible()
+        load_btn.click()
+        # Navigate to the EQ tab via BottomNav
+        eq_tab = page.locator(".bottom-nav-tab", has_text="EQ")
+        expect(eq_tab).to_be_visible()
+        eq_tab.click()
+        return page
+
+    def test_eq_section_visible(self, eq_panel: Page) -> None:
+        expect(eq_panel.locator("#eq-section")).to_be_visible()
+
+    def test_eq_has_five_band_sliders(self, eq_panel: Page) -> None:
+        expect(eq_panel.locator(".eq-slider")).to_have_count(5)
+
+    def test_eq_preset_selector_present(self, eq_panel: Page) -> None:
+        expect(eq_panel.locator(".eq-preset-select")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# Mobile navigation
+# ---------------------------------------------------------------------------
+
+
+class TestBottomNav:
+    def test_bottom_nav_visible(self, page: Page) -> None:
+        page.goto("/")
+        expect(page.locator(".bottom-nav")).to_be_visible()
+
+    def test_library_tab_active_initially(self, page: Page) -> None:
+        page.goto("/")
+        library_tab = page.locator(".bottom-nav-tab.active")
+        expect(library_tab).to_contain_text("Library")
+
+    def test_player_tab_disabled_without_song(self, page: Page) -> None:
+        page.goto("/")
+        player_tab = page.locator(".bottom-nav-tab.disabled", has_text="Player")
+        expect(player_tab).to_be_visible()

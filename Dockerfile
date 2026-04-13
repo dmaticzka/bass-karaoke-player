@@ -4,6 +4,22 @@
 # =============================================================================
 
 # ---------------------------------------------------------------------------
+# Stage 0: frontend-builder – build the React/Vite frontend
+# ---------------------------------------------------------------------------
+FROM node:22-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy manifests first for better layer caching
+COPY frontend/package.json frontend/package-lock.json* ./
+
+RUN npm ci --prefer-offline
+
+COPY frontend/ .
+
+RUN npm run build
+
+# ---------------------------------------------------------------------------
 # Stage 1: builder – install Python dependencies into a virtual environment
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim AS builder
@@ -62,7 +78,8 @@ RUN /app/.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['pur
 # Copy application source
 WORKDIR /app
 COPY backend/ ./backend/
-COPY frontend/ ./frontend/
+# Copy the pre-built frontend dist from the frontend-builder stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend-dist/
 COPY pyproject.toml ./
 
 # Create data directory and models cache directory
@@ -75,7 +92,7 @@ USER player
 ENV VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH" \
     DATA_DIR=/data \
-    FRONTEND_DIR=/app/frontend \
+    FRONTEND_DIR=/app/frontend-dist \
     TORCH_HOME=/models \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app

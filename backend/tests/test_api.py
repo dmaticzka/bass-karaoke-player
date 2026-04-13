@@ -353,6 +353,46 @@ class TestFrontend:
         assert resp.status_code == 404
         assert "index.html" in resp.json()["detail"]
 
+    def test_default_frontend_dir_is_dist(self) -> None:
+        """FRONTEND_DIR must default to 'frontend/dist' (the Vite build output)."""
+        import backend.app.main as main_module
+
+        # The module-level default must match the Vite outDir so that the
+        # app works out-of-the-box after `npm run build` without extra env vars.
+        assert main_module.FRONTEND_DIR == Path("frontend/dist") or str(
+            main_module.FRONTEND_DIR
+        ).endswith("frontend/dist")
+
+    def test_static_assets_served_from_frontend_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Files inside FRONTEND_DIR must be accessible under /static/."""
+        import backend.app.main as main_module
+
+        # Simulate a Vite dist layout: index.html + assets/
+        frontend_dir = tmp_path / "frontend" / "dist"
+        frontend_dir.mkdir(parents=True)
+        (frontend_dir / "index.html").write_text(
+            "<!DOCTYPE html><html><body>Bass Karaoke Player</body></html>"
+        )
+        assets_dir = frontend_dir / "assets"
+        assets_dir.mkdir()
+        (assets_dir / "main.js").write_text("console.log('hello');")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        data_dir = tmp_path / "data"
+        main_module.storage = SongStorage(data_dir)
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+
+        # The Vite-built index references /static/assets/main.js; verify it is served
+        resp = test_client.get("/static/assets/main.js")
+        assert resp.status_code == 200
+        assert "hello" in resp.text
+
 
 # ---------------------------------------------------------------------------
 # Lifespan

@@ -34,6 +34,34 @@ jobs:
       - name: Run mypy
         run: uv run mypy backend/app/ --ignore-missing-imports
 
+  frontend:
+    name: Frontend (build + typecheck)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: TypeScript type-check + Vite build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
   test:
     name: Tests
     runs-on: ubuntu-latest
@@ -69,7 +97,7 @@ jobs:
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, frontend]
     permissions:
       contents: read
 
@@ -86,15 +114,22 @@ jobs:
       - name: Install Playwright browsers
         run: uv run playwright install --with-deps chromium
 
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
       - name: Run E2E tests
         run: uv run pytest e2e/ -v --no-cov
         env:
           PYTHONPATH: .
+          FRONTEND_DIR: frontend/dist
 
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, frontend]
     permissions:
       contents: read
     steps:
@@ -112,4 +147,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: smoketest
-
