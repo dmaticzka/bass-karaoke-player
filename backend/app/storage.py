@@ -14,7 +14,7 @@ from backend.app.models import Song, SongStatus, StemName, VersionStatus
 class VersionMetaEntry(TypedDict, total=False):
     """Structure of a single entry in versions.json."""
 
-    accessed_at: str  # ISO 8601 timestamp
+    accessed_at: str  # ISO 8601 timestamp – used for LRU eviction ordering
     stem_count: int
     pinned: bool
 
@@ -178,37 +178,48 @@ class SongStorage:
             return VersionStatus.PARTIAL
         return VersionStatus.MISSING
 
-    def evict_lru_versions(
-        self, song_id: str, max_versions: int
-    ) -> list[tuple[float, float]]:
-        """Evict the least-recently-used non-pinned, non-default versions.
+    def evict_global_lru(self, max_total: int) -> list[tuple[str, float, float]]:
+        """Evict globally least-recently-used non-pinned, non-default versions.
 
-        Keeps the count of processed versions at or below *max_versions*.
-        The default (pitch=0.0, tempo=1.0) is never evicted.
-        Returns the list of (pitch, tempo) pairs that were deleted.
+        Scans every song's processed directory and keeps the total count of
+        non-default processed versions across **all** songs at or below
+        *max_total*.  The default (pitch=0.0, tempo=1.0) version of any song
+        is never evicted.
+
+        Returns the list of (song_id, pitch, tempo) triples that were deleted.
         """
-        evicted: list[tuple[float, float]] = []
+        evicted: list[tuple[str, float, float]] = []
         while True:
-            versions = self.list_versions(song_id)
-            non_default = [(p, t) for p, t in versions if not (p == 0.0 and t == 1.0)]
-            if len(non_default) <= max_versions:
-                break
-            meta = self.read_version_meta(song_id)
-            candidates: list[tuple[str, float, float]] = []
-            for p, t in non_default:
-                tag = self._make_version_tag(p, t)
-                entry = meta.get(tag, {})
-                if entry.get("pinned", False):
+            candidates: list[tuple[str, str, float, float]] = []
+            total_non_default = 0
+
+            for song_dir in sorted(self.songs_dir.iterdir()):
+                if not song_dir.is_dir():
                     continue
-                accessed_at = entry.get("accessed_at", "1970-01-01T00:00:00+00:00")
-                candidates.append((accessed_at, p, t))
+                song_id = song_dir.name
+                versions = self.list_versions(song_id)
+                non_default = [
+                    (p, t) for p, t in versions if not (p == 0.0 and t == 1.0)
+                ]
+                total_non_default += len(non_default)
+                meta = self.read_version_meta(song_id)
+                for p, t in non_default:
+                    tag = self._make_version_tag(p, t)
+                    entry = meta.get(tag, {})
+                    if not entry.get("pinned", False):
+                        accessed_at = entry.get(
+                            "accessed_at", "1970-01-01T00:00:00+00:00"
+                        )
+                        candidates.append((accessed_at, song_id, p, t))
+
+            if total_non_default <= max_total:
+                break
             if not candidates:
                 break  # All remaining non-default versions are pinned
             candidates.sort()  # oldest accessed_at first
-            _, pitch, tempo = candidates[0]
-            # delete_version also removes the entry from versions.json
+            _, song_id, pitch, tempo = candidates[0]
             self.delete_version(song_id, pitch, tempo)
-            evicted.append((pitch, tempo))
+            evicted.append((song_id, pitch, tempo))
         return evicted
 
     def list_versions(self, song_id: str) -> list[tuple[float, float]]:

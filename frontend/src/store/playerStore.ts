@@ -105,7 +105,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   activeStemForEq: null,
   globalEq: DEFAULT_EQ_BANDS.map((b) => ({ ...b })),
   stemEq: {},
-  serverConfig: { max_versions_per_song: 5, max_versions_global: 50 },
+  serverConfig: { max_versions_global: 50 },
   activeTab: "library",
   uploadProgress: null,
   uploadStatus: "",

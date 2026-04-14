@@ -313,8 +313,8 @@ class TestVersionStatus:
         assert storage.version_status(song.id, 2.0, 1.0) == VersionStatus.READY
 
 
-class TestEvictLruVersions:
-    """Tests for evict_lru_versions."""
+class TestEvictGlobalLru:
+    """Tests for evict_global_lru."""
 
     def _make_version(
         self, storage: SongStorage, song_id: str, pitch: float, tempo: float
@@ -325,34 +325,33 @@ class TestEvictLruVersions:
     def test_no_eviction_when_within_limit(self, storage: SongStorage) -> None:
         song = storage.create_song("song.mp3")
         self._make_version(storage, song.id, 1.0, 1.0)
-        evicted = storage.evict_lru_versions(song.id, max_versions=5)
+        evicted = storage.evict_global_lru(max_total=5)
         assert evicted == []
         assert storage.version_status(song.id, 1.0, 1.0) == VersionStatus.READY
 
-    def test_evicts_oldest_when_over_limit(self, storage: SongStorage) -> None:
-        """Oldest accessed_at version must be evicted first."""
-        song = storage.create_song("song.mp3")
-        # Create 3 versions with distinct timestamps in meta
-        for pitch in [1.0, 2.0, 3.0]:
-            self._make_version(storage, song.id, pitch, 1.0)
+    def test_evicts_globally_oldest_across_songs(self, storage: SongStorage) -> None:
+        """The globally oldest accessed_at version is evicted first."""
+        song1 = storage.create_song("song1.mp3")
+        song2 = storage.create_song("song2.mp3")
+        # song1 has the oldest version
+        self._make_version(storage, song1.id, 1.0, 1.0)
+        self._make_version(storage, song2.id, 2.0, 1.0)
         tag1 = storage._make_version_tag(1.0, 1.0)
         tag2 = storage._make_version_tag(2.0, 1.0)
-        tag3 = storage._make_version_tag(3.0, 1.0)
         storage.write_version_meta(
-            song.id,
-            {
-                tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False},
-                tag2: {"accessed_at": "2026-01-02T00:00:00+00:00", "pinned": False},
-                tag3: {"accessed_at": "2026-01-03T00:00:00+00:00", "pinned": False},
-            },
+            song1.id, {tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False}}
         )
-        evicted = storage.evict_lru_versions(song.id, max_versions=2)
+        storage.write_version_meta(
+            song2.id, {tag2: {"accessed_at": "2026-01-03T00:00:00+00:00", "pinned": False}}
+        )
+        evicted = storage.evict_global_lru(max_total=1)
         assert len(evicted) == 1
-        assert evicted[0] == (1.0, 1.0)  # oldest was pitch=1.0
-        assert storage.version_status(song.id, 1.0, 1.0) == VersionStatus.MISSING
+        assert evicted[0] == (song1.id, 1.0, 1.0)
+        assert storage.version_status(song1.id, 1.0, 1.0) == VersionStatus.MISSING
+        assert storage.version_status(song2.id, 2.0, 1.0) == VersionStatus.READY
 
     def test_pinned_versions_not_evicted(self, storage: SongStorage) -> None:
-        """Pinned versions must be skipped during eviction."""
+        """Pinned versions must be skipped during global eviction."""
         song = storage.create_song("song.mp3")
         for pitch in [1.0, 2.0]:
             self._make_version(storage, song.id, pitch, 1.0)
@@ -365,13 +364,12 @@ class TestEvictLruVersions:
                 tag2: {"accessed_at": "2026-01-02T00:00:00+00:00", "pinned": True},
             },
         )
-        evicted = storage.evict_lru_versions(song.id, max_versions=1)
+        evicted = storage.evict_global_lru(max_total=1)
         assert evicted == []  # Both are pinned, nothing to evict
 
     def test_default_version_never_evicted(self, storage: SongStorage) -> None:
-        """The default (0.0, 1.0) version is exempt from eviction."""
+        """The default (0.0, 1.0) version is exempt from global eviction."""
         song = storage.create_song("song.mp3")
-        # Create a processed version at pitch=0.0, tempo=1.0
         self._make_version(storage, song.id, 0.0, 1.0)
         self._make_version(storage, song.id, 1.0, 1.0)
         tag_default = storage._make_version_tag(0.0, 1.0)
@@ -379,34 +377,36 @@ class TestEvictLruVersions:
         storage.write_version_meta(
             song.id,
             {
-                tag_default: {
-                    "accessed_at": "2025-01-01T00:00:00+00:00",
-                    "pinned": False,
-                },
-                tag_other: {
-                    "accessed_at": "2026-01-01T00:00:00+00:00",
-                    "pinned": False,
-                },
+                tag_default: {"accessed_at": "2025-01-01T00:00:00+00:00", "pinned": False},
+                tag_other: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False},
             },
         )
-        evicted = storage.evict_lru_versions(song.id, max_versions=1)
-        # (0.0, 1.0) is excluded from the limit so only non-default counts; 1 <= 1 → no eviction
+        # max_total=1: only 1 non-default version exists; no eviction needed
+        evicted = storage.evict_global_lru(max_total=1)
         assert evicted == []
+        assert storage.version_status(song.id, 0.0, 1.0) == VersionStatus.READY
 
     def test_evicts_multiple_to_reach_limit(self, storage: SongStorage) -> None:
-        """Multiple versions may be evicted in one call."""
-        song = storage.create_song("song.mp3")
-        for pitch in [1.0, 2.0, 3.0, 4.0]:
-            self._make_version(storage, song.id, pitch, 1.0)
-        for i, pitch in enumerate([1.0, 2.0, 3.0, 4.0]):
+        """Multiple versions across songs may be evicted in one call."""
+        song1 = storage.create_song("song1.mp3")
+        song2 = storage.create_song("song2.mp3")
+        self._make_version(storage, song1.id, 1.0, 1.0)
+        self._make_version(storage, song1.id, 2.0, 1.0)
+        self._make_version(storage, song2.id, 3.0, 1.0)
+        self._make_version(storage, song2.id, 4.0, 1.0)
+        for song, pitch, ts in [
+            (song1, 1.0, "2026-01-01T00:00:00+00:00"),
+            (song1, 2.0, "2026-01-02T00:00:00+00:00"),
+            (song2, 3.0, "2026-01-03T00:00:00+00:00"),
+            (song2, 4.0, "2026-01-04T00:00:00+00:00"),
+        ]:
             tag = storage._make_version_tag(pitch, 1.0)
             meta = storage.read_version_meta(song.id)
-            meta[tag] = {
-                "accessed_at": f"2026-01-0{i + 1}T00:00:00+00:00",
-                "pinned": False,
-            }
+            meta[tag] = {"accessed_at": ts, "pinned": False}
             storage.write_version_meta(song.id, meta)
-        evicted = storage.evict_lru_versions(song.id, max_versions=2)
+
+        evicted = storage.evict_global_lru(max_total=2)
         assert len(evicted) == 2
-        remaining = storage.list_versions(song.id)
-        assert len(remaining) == 2
+        # The two oldest: song1/1.0 and song1/2.0
+        assert (song1.id, 1.0, 1.0) in evicted
+        assert (song1.id, 2.0, 1.0) in evicted

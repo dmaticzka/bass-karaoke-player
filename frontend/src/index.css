@@ -355,11 +355,7 @@ a:hover { text-decoration: underline; }
 }
 .version-status-badge.status-processing { background: #854d0e; color: #fef9c3; animation: pulse 1.2s ease-in-out infinite; }
 .version-status-badge.status-partial { background: #713f12; color: #fef9c3; }
-.version-accessed { font-size: 0.7rem; color: var(--color-muted); }
-.cache-stats { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; font-size: 0.78rem; color: var(--color-muted); }
-.cache-stats-bar { flex: 1; height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; }
-.cache-stats-fill { height: 100%; background: var(--color-accent2); border-radius: 2px; transition: width 0.3s ease; }
-.cache-stats-fill.full { background: var(--color-accent); }
+.version-item.version-cached { border-left: 3px solid #22c55e; padding-left: calc(0.75rem - 3px); }
 
 /* ---------- Stems stack (vertical) ---------- */
 .stems-stack {
