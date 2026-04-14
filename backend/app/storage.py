@@ -193,7 +193,7 @@ class SongStorage:
             candidates: list[tuple[str, str, float, float]] = []
             total_non_default = 0
 
-            for song_dir in sorted(self.songs_dir.iterdir()):
+            for song_dir in self.songs_dir.iterdir():
                 if not song_dir.is_dir():
                     continue
                 song_id = song_dir.name

@@ -381,7 +381,8 @@ class TestEvictGlobalLru:
                 tag_other: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False},
             },
         )
-        # max_total=1: only 1 non-default version exists; no eviction needed
+        # max_total=1: the non-default version (1.0, 1.0) counts as 1, which equals the
+        # limit, so no eviction needed. The default (0.0, 1.0) is excluded from the count.
         evicted = storage.evict_global_lru(max_total=1)
         assert evicted == []
         assert storage.version_status(song.id, 0.0, 1.0) == VersionStatus.READY

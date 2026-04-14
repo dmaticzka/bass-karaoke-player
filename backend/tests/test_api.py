@@ -563,7 +563,7 @@ class TestSplitSongTask:
         assert updated is not None
         assert updated.status == SongStatus.READY
 
-    def test_split_song_auto_caches_default_version(
+    def test_split_song_pre_caches_default_version(
         self, data_dir: Path, tmp_path: Path
     ) -> None:
         """After successful splitting, the default version (0.0, 1.0) must be cached."""

@@ -187,7 +187,10 @@ def _split_song_task(song_id: str) -> None:
     storage.update_status(song_id, SongStatus.READY, stems=available)
     logger.info("Stem splitting complete for %s", song_id)
     # Pre-cache the default (unmodified) version immediately after splitting.
-    _process_version_task(song_id, 0.0, 1.0)
+    try:
+        _process_version_task(song_id, 0.0, 1.0)
+    except Exception:
+        logger.exception("Failed to pre-cache default version for %s", song_id)
 
 
 def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
