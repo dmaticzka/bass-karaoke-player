@@ -339,10 +339,12 @@ class TestEvictGlobalLru:
         tag1 = storage._make_version_tag(1.0, 1.0)
         tag2 = storage._make_version_tag(2.0, 1.0)
         storage.write_version_meta(
-            song1.id, {tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False}}
+            song1.id,
+            {tag1: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False}},
         )
         storage.write_version_meta(
-            song2.id, {tag2: {"accessed_at": "2026-01-03T00:00:00+00:00", "pinned": False}}
+            song2.id,
+            {tag2: {"accessed_at": "2026-01-03T00:00:00+00:00", "pinned": False}},
         )
         evicted = storage.evict_global_lru(max_total=1)
         assert len(evicted) == 1
@@ -377,8 +379,14 @@ class TestEvictGlobalLru:
         storage.write_version_meta(
             song.id,
             {
-                tag_default: {"accessed_at": "2025-01-01T00:00:00+00:00", "pinned": False},
-                tag_other: {"accessed_at": "2026-01-01T00:00:00+00:00", "pinned": False},
+                tag_default: {
+                    "accessed_at": "2025-01-01T00:00:00+00:00",
+                    "pinned": False,
+                },
+                tag_other: {
+                    "accessed_at": "2026-01-01T00:00:00+00:00",
+                    "pinned": False,
+                },
             },
         )
         # max_total=1: the non-default version (1.0, 1.0) counts as 1, which equals the
