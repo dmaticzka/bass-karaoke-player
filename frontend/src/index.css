@@ -419,8 +419,13 @@ a:hover { text-decoration: underline; }
   gap: 0.65rem;
   position: relative;
 }
-.playback-buttons { display: flex; gap: 0.65rem; }
-.playback-buttons .btn { flex: 1; }
+.playback-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+/* On small screens: 2 buttons per row (3 rows for 6 buttons) */
+.playback-buttons .btn { flex: 1 1 calc(50% - 0.325rem); }
 .seek-row { display: flex; align-items: center; gap: 0.65rem; }
 .seek-row input[type="range"] {
   flex: 1;
@@ -443,8 +448,8 @@ a:hover { text-decoration: underline; }
 
 @media (min-width: 600px) {
   .playback-controls { flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .playback-buttons { flex: 0 0 auto; }
-  .playback-buttons .btn { flex: unset; }
+  .playback-buttons { flex: 0 0 auto; flex-wrap: nowrap; }
+  .playback-buttons .btn { flex: 0 0 auto; }
   .seek-row { flex: 1; min-width: 200px; }
 }
 
