@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import * as eng from "../audio/engine";
+import * as audioCache from "../audio/audioCache";
 import { GlobalControls } from "./GlobalControls";
 import { StemsStack } from "./StemsStack";
 import { PlaybackBar } from "./PlaybackBar";
@@ -70,9 +71,16 @@ export function PlayerSection() {
         } else {
           url = api.stemUrl(activeSong.id, stem);
         }
-        const resp = await fetch(url);
-        const buf = await resp.arrayBuffer();
-        const audio = await ctx.decodeAudioData(buf);
+        const cached = audioCache.get(url);
+        let audio: AudioBuffer;
+        if (cached !== undefined) {
+          audio = cached;
+        } else {
+          const resp = await fetch(url);
+          const buf = await resp.arrayBuffer();
+          audio = await ctx.decodeAudioData(buf);
+          audioCache.set(url, audio);
+        }
         return { stem, audio };
       }),
     );
