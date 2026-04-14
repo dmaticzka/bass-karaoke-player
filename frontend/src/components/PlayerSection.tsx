@@ -151,7 +151,7 @@ export function PlayerSection() {
       const s = usePlayerStore.getState();
       if (!s.isPlaying) return;
       if (s.loopEnabled && s.loopEnd !== null && elapsed >= s.loopEnd) {
-        setStartOffset(s.loopEnd);
+        setStartOffset(s.loopStart ?? 0);
         setStartTime(eng.currentTime());
         return;
       }
