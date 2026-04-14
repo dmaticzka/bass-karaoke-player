@@ -53,7 +53,7 @@ bass-karaoke-player/
 - Pydantic **v2** – use `model_validator`, `field_validator`, `model_dump()` etc. (not v1 syntax).
 - Logging: use `logger = logging.getLogger(__name__)` at module level; never use `print()` in production code.
 - Error handling: raise `fastapi.HTTPException` with appropriate status codes in route handlers; raise custom `AudioProcessorError` inside `audio_processor.py`.
-- Format: `ruff format` (88-char line length, compatible with Black).
+- Format: `ruff format` (88-char line length, compatible with Black). **Always run `ruff format <file>` after editing any Python file**, and verify with `ruff format --check backend/` before committing.
 - Lint rules: E, F, I, N, W, UP (see `pyproject.toml [tool.ruff.lint]`).
 
 ### Commit messages
@@ -125,9 +125,12 @@ PYTHONPATH=. pytest backend/tests/ -v
 
 ```bash
 ruff check backend/
-ruff format backend/
+ruff format backend/          # auto-format (fixes formatting in-place)
+ruff format --check backend/  # verify formatting without changing files
 mypy backend/app/ --ignore-missing-imports
 ```
+
+> **Important:** both `ruff check` *and* `ruff format --check` must pass. CI fails if either reports errors. Always run `ruff format backend/` after editing Python files.
 
 ## Docker
 

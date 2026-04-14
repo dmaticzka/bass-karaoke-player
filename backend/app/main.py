@@ -7,7 +7,6 @@ import os
 import shutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -47,7 +46,6 @@ FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend/dist"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
-MAX_VERSIONS_PER_SONG = int(os.getenv("MAX_VERSIONS_PER_SONG", "5"))
 MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
 
 # ---------------------------------------------------------------------------
@@ -188,6 +186,11 @@ def _split_song_task(song_id: str) -> None:
 
     storage.update_status(song_id, SongStatus.READY, stems=available)
     logger.info("Stem splitting complete for %s", song_id)
+    # Pre-cache the default (unmodified) version immediately after splitting.
+    try:
+        _process_version_task(song_id, 0.0, 1.0)
+    except Exception:
+        logger.exception("Failed to pre-cache default version for %s", song_id)
 
 
 def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
@@ -221,7 +224,7 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
                 return
 
     storage.touch_version(song_id, pitch, tempo)
-    storage.evict_lru_versions(song_id, MAX_VERSIONS_PER_SONG)
+    storage.evict_global_lru(MAX_VERSIONS_GLOBAL)
     logger.info("Version (pitch=%s, tempo=%s) ready for song %s", pitch, tempo, song_id)
 
 
@@ -439,40 +442,22 @@ def _song_router() -> APIRouter:
         """
         _require_ready_song(song_id)
         pairs = storage.list_versions(song_id)
-        meta = storage.read_version_meta(song_id)
         versions: list[Version] = [
             Version(
                 pitch_semitones=0.0,
                 tempo_ratio=1.0,
                 is_default=True,
                 status=VersionStatus.READY,
-                stem_count=4,
             )
         ]
         for pitch, tempo in pairs:
-            tag = storage._make_version_tag(pitch, tempo)
-            entry = meta.get(tag, {})
             vstatus = storage.version_status(song_id, pitch, tempo)
-            stem_count = sum(
-                1
-                for stem in StemName
-                if storage.processed_path(song_id, stem, pitch, tempo).exists()
-            )
-            accessed_at = None
-            raw_at = entry.get("accessed_at")
-            if raw_at:
-                try:
-                    accessed_at = datetime.fromisoformat(str(raw_at))
-                except ValueError:
-                    pass
             versions.append(
                 Version(
                     pitch_semitones=pitch,
                     tempo_ratio=tempo,
                     is_default=False,
                     status=vstatus,
-                    stem_count=stem_count,
-                    accessed_at=accessed_at,
                 )
             )
         return VersionListResponse(versions=versions)
@@ -553,7 +538,6 @@ def _song_router() -> APIRouter:
     async def get_config() -> dict[str, int]:
         """Return server-side configuration values useful to the frontend."""
         return {
-            "max_versions_per_song": MAX_VERSIONS_PER_SONG,
             "max_versions_global": MAX_VERSIONS_GLOBAL,
         }
 

@@ -6,32 +6,11 @@ interface Props {
   onSelectVersion: (pitch: number, tempo: number) => Promise<void>;
 }
 
-function fmtRelTime(isoStr: string): string {
-  try {
-    const ts = new Date(isoStr).getTime();
-    if (!isFinite(ts)) return "";
-    const diff = Date.now() - ts;
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  } catch {
-    return "";
-  }
-}
-
 export function VersionsPicker({ onSelectVersion }: Props) {
   const versions = usePlayerStore((s) => s.versions);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const activeSong = usePlayerStore((s) => s.activeSong);
-  const serverConfig = usePlayerStore((s) => s.serverConfig);
   const setVersions = usePlayerStore((s) => s.setVersions);
-
-  const readyCount = versions.filter((v) => !v.is_default).length;
-  const maxVersions = serverConfig.max_versions_per_song;
-  const pct = Math.min(100, (readyCount / maxVersions) * 100);
 
   const handleDelete = async (ver: Version) => {
     if (!activeSong) return;
@@ -72,11 +51,19 @@ export function VersionsPicker({ onSelectVersion }: Props) {
             activeVersion.pitch === ver.pitch_semitones &&
             activeVersion.tempo === ver.tempo_ratio;
           const clickable = ver.status !== "processing";
+          const isCached = ver.status === "ready";
 
           return (
             <li
               key={`${ver.pitch_semitones}-${ver.tempo_ratio}`}
-              className={`version-item${ver.is_default ? " default-version" : ""}${isActive ? " active" : ""}`}
+              className={[
+                "version-item",
+                ver.is_default ? "default-version" : "",
+                isActive ? "active" : "",
+                isCached ? "version-cached" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               title={`Pitch: ${pitchStr} semitones, Tempo: ${tempoStr}`}
               onClick={clickable ? () => void onSelectVersion(ver.pitch_semitones, ver.tempo_ratio) : undefined}
               style={{ cursor: clickable ? "pointer" : "default" }}
@@ -88,11 +75,6 @@ export function VersionsPicker({ onSelectVersion }: Props) {
                   {(ver.status === "processing" || ver.status === "partial") && (
                     <span className={`version-status-badge status-${ver.status}`}>
                       {ver.status === "processing" ? "⏳" : "partial"}
-                    </span>
-                  )}
-                  {ver.accessed_at && (
-                    <span className="version-accessed">
-                      {fmtRelTime(ver.accessed_at)}
                     </span>
                   )}
                   {ver.status !== "processing" && (
@@ -113,19 +95,6 @@ export function VersionsPicker({ onSelectVersion }: Props) {
           );
         })}
       </ul>
-
-      <div className="cache-stats" id="cache-stats">
-        <span id="cache-stats-label">
-          Versions: {readyCount} / {maxVersions}
-        </span>
-        <div className="cache-stats-bar" id="cache-stats-bar">
-          <div
-            className={`cache-stats-fill${readyCount >= maxVersions ? " full" : ""}`}
-            id="cache-stats-fill"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

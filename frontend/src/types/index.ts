@@ -24,8 +24,6 @@ export interface Version {
   tempo_ratio: number;
   is_default: boolean;
   status: VersionStatus;
-  stem_count: number;
-  accessed_at?: string | null;
 }
 
 export interface VersionListResponse {
@@ -58,7 +56,6 @@ export interface BulkProcessResponse {
 }
 
 export interface ServerConfig {
-  max_versions_per_song: number;
   max_versions_global: number;
 }
 

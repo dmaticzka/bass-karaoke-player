@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -106,8 +105,6 @@ class Version(BaseModel):
     tempo_ratio: float
     is_default: bool = False
     status: VersionStatus = VersionStatus.READY
-    stem_count: int = 4
-    accessed_at: datetime | None = None
 
 
 class VersionListResponse(BaseModel):

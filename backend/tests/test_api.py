@@ -56,9 +56,8 @@ class TestHealth:
         resp = client.get("/api/config")
         assert resp.status_code == 200
         data = resp.json()
-        assert "max_versions_per_song" in data
         assert "max_versions_global" in data
-        assert data["max_versions_per_song"] > 0
+        assert "max_versions_per_song" not in data
         assert data["max_versions_global"] > 0
 
 
@@ -526,7 +525,8 @@ class TestSplitSongTask:
         main_module.storage = storage
         main_module.splitter = mock_splitter
 
-        _split_song_task(song.id)
+        with patch("backend.app.main._process_version_task"):
+            _split_song_task(song.id)
 
         updated = storage.load_song(song.id)
         assert updated is not None
@@ -556,11 +556,58 @@ class TestSplitSongTask:
         main_module.storage = storage
         main_module.splitter = mock_splitter
 
-        _split_song_task(song.id)
+        with patch("backend.app.main._process_version_task"):
+            _split_song_task(song.id)
 
         updated = storage.load_song(song.id)
         assert updated is not None
         assert updated.status == SongStatus.READY
+
+    def test_split_song_pre_caches_default_version(
+        self, data_dir: Path, tmp_path: Path
+    ) -> None:
+        """After successful splitting, the default version (0.0, 1.0) must be cached."""
+        import backend.app.main as main_module
+        from backend.app.main import _split_song_task
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("song.mp3")
+        upload_path = storage.upload_path(song.id, "song.mp3")
+        upload_path.write_bytes(b"\x00" * 100)
+
+        fake_dir = tmp_path / "fake_stems"
+        fake_dir.mkdir()
+        stem_paths: dict[StemName, Path] = {}
+        for stem in StemName:
+            p = fake_dir / f"{stem.value}.mp3"
+            p.write_bytes(b"RIFF" + b"\x00" * 40)
+            stem_paths[stem] = p
+
+        mock_splitter = MagicMock()
+        mock_splitter.split.return_value = stem_paths
+
+        def fake_process(
+            input_path: Path,
+            output_path: Path,
+            pitch_semitones: float = 0.0,
+            tempo_ratio: float = 1.0,
+        ) -> Path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"\x00")
+            return output_path
+
+        mock_processor = MagicMock()
+        mock_processor.process.side_effect = fake_process
+
+        main_module.storage = storage
+        main_module.splitter = mock_splitter
+        main_module.processor = mock_processor
+
+        _split_song_task(song.id)
+
+        from backend.app.models import VersionStatus
+
+        assert storage.version_status(song.id, 0.0, 1.0) == VersionStatus.READY
 
 
 # ---------------------------------------------------------------------------
@@ -1131,9 +1178,8 @@ class TestListVersionsEnriched:
         default = resp.json()["versions"][0]
         assert default["is_default"] is True
         assert default["status"] == "ready"
-        assert default["stem_count"] == 4
 
-    def test_cached_version_shows_ready_status_and_stem_count(
+    def test_cached_version_shows_ready_status(
         self, client: TestClient, data_dir: Path
     ) -> None:
         import backend.app.main as main_module
@@ -1151,8 +1197,6 @@ class TestListVersionsEnriched:
         assert len(non_default) == 1
         ver = non_default[0]
         assert ver["status"] == "ready"
-        assert ver["stem_count"] == 4
-        assert ver["accessed_at"] is not None
 
     def test_partial_version_shows_partial_status(
         self, client: TestClient, data_dir: Path
@@ -1170,7 +1214,6 @@ class TestListVersionsEnriched:
         non_default = [v for v in resp.json()["versions"] if not v["is_default"]]
         assert len(non_default) == 1
         assert non_default[0]["status"] == "partial"
-        assert non_default[0]["stem_count"] == 1
 
 
 # ---------------------------------------------------------------------------
