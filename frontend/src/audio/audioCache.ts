@@ -1,43 +1,40 @@
 /**
- * In-memory LRU cache for decoded AudioBuffer objects.
+ * In-memory LRU cache for compressed stem response bytes.
  *
- * Caches per-stem audio data keyed by request URL so that switching back to a
- * previously loaded song or version does not require a new HTTP round-trip or
- * an expensive decodeAudioData call.
- *
- * Capacity is intentionally conservative: each decoded stereo stem for a
- * 3-minute song occupies ~60 MB of memory, so MAX_ENTRIES = 20 covers roughly
- * five full song versions (4 stems each) while keeping peak usage manageable.
+ * Caches per-stem payloads keyed by request URL so that switching back to a
+ * previously loaded song or version does not require a new HTTP round-trip.
+ * Decoding still happens on load, but memory pressure is much lower than when
+ * retaining decoded PCM buffers for multiple versions.
  */
 
 /** Maximum number of AudioBuffer entries kept in memory at once. */
 export const MAX_ENTRIES = 20;
 
-/** LRU map: URL → AudioBuffer.  Insertion/access order = most-recent last. */
-const cache = new Map<string, AudioBuffer>();
+/** LRU map: URL → compressed bytes. Insertion/access order = most-recent last. */
+const cache = new Map<string, Uint8Array>();
 
 /**
- * Return the cached AudioBuffer for *url*, or `undefined` on a miss.
+ * Return a copy of cached compressed bytes for *url*, or `undefined` on a miss.
  * A hit promotes the entry to most-recently-used position.
  */
-export function get(url: string): AudioBuffer | undefined {
-  const buf = cache.get(url);
-  if (buf === undefined) return undefined;
+export function get(url: string): ArrayBuffer | undefined {
+  const bytes = cache.get(url);
+  if (bytes === undefined) return undefined;
   // Promote to MRU position by re-inserting.
   cache.delete(url);
-  cache.set(url, buf);
-  return buf;
+  cache.set(url, bytes);
+  return bytes.slice().buffer;
 }
 
 /**
- * Store *buffer* under *url*.
+ * Store compressed *bytes* under *url*.
  * If the cache is already at capacity, the least-recently-used entry is
  * evicted first.
  */
-export function set(url: string, buffer: AudioBuffer): void {
+export function set(url: string, bytes: ArrayBuffer): void {
   // Remove any existing entry so we can re-insert at the MRU end.
   cache.delete(url);
-  cache.set(url, buffer);
+  cache.set(url, new Uint8Array(bytes.slice(0)));
   if (cache.size > MAX_ENTRIES) {
     // The first key in Map iteration order is the LRU entry.
     cache.delete(cache.keys().next().value as string);

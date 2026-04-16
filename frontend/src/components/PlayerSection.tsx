@@ -71,16 +71,13 @@ export function PlayerSection() {
         } else {
           url = api.stemUrl(activeSong.id, stem);
         }
-        const cached = audioCache.get(url);
-        let audio: AudioBuffer;
-        if (cached !== undefined) {
-          audio = cached;
-        } else {
+        let encoded = audioCache.get(url);
+        if (encoded === undefined) {
           const resp = await fetch(url);
-          const buf = await resp.arrayBuffer();
-          audio = await ctx.decodeAudioData(buf);
-          audioCache.set(url, audio);
+          encoded = await resp.arrayBuffer();
+          audioCache.set(url, encoded);
         }
+        const audio = await ctx.decodeAudioData(encoded.slice(0));
         return { stem, audio };
       }),
     );
