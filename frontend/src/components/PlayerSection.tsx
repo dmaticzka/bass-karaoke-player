@@ -77,6 +77,8 @@ export function PlayerSection() {
           encoded = await resp.arrayBuffer();
           audioCache.set(url, encoded);
         }
+        // decodeAudioData may consume/mutate input buffers in some engines; the
+        // cache returns a copy and fresh fetches use request-scoped buffers.
         const audio = await ctx.decodeAudioData(encoded);
         return { stem, audio };
       }),

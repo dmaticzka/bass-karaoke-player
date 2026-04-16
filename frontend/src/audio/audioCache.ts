@@ -7,7 +7,7 @@
  * retaining decoded PCM buffers for multiple versions.
  */
 
-/** Maximum number of AudioBuffer entries kept in memory at once. */
+/** Maximum number of compressed stem entries kept in memory at once. */
 export const MAX_ENTRIES = 20;
 
 /** LRU map: URL → compressed bytes. Insertion/access order = most-recent last. */
@@ -23,10 +23,7 @@ export function get(url: string): ArrayBuffer | undefined {
   // Promote to MRU position by re-inserting.
   cache.delete(url);
   cache.set(url, bytes);
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+  return new Uint8Array(bytes).buffer;
 }
 
 /**
