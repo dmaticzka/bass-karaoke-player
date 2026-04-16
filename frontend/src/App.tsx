@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePlayerStore } from "./store/playerStore";
 import { api } from "./api/client";
 import { UploadSection } from "./components/UploadSection";
@@ -16,6 +16,9 @@ export default function App() {
   const setActiveTab = usePlayerStore((s) => s.setActiveTab);
   const activeTab = usePlayerStore((s) => s.activeTab);
   const activeSong = usePlayerStore((s) => s.activeSong);
+
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
+  const [eqCollapsed, setEqCollapsed] = useState(true);
 
   // Bootstrap: fetch config + song list
   useEffect(() => {
@@ -38,10 +41,18 @@ export default function App() {
   const handleLoadSong = (song: Song) => {
     setActiveSong(song);
     setActiveTab("player");
+    setLibraryCollapsed(true);
   };
 
   const handleTabChange = (tab: AppTab) => {
     setActiveTab(tab);
+    // Auto-expand relevant section when navigating to it
+    if (tab === "library") {
+      setLibraryCollapsed(false);
+    }
+    if (tab === "eq") {
+      setEqCollapsed(false);
+    }
     // Scroll to the corresponding section
     const sectionId =
       tab === "library" ? "library-section" : tab === "player" ? "player-section" : "eq-section";
@@ -82,8 +93,24 @@ export default function App() {
       <main className="app-main">
         {/* Library section */}
         <div id="library-section" className="tab-section">
-          <UploadSection />
-          <SongList onLoadSong={handleLoadSong} />
+          <div className="card">
+            <div
+              className="collapsible-header"
+              onClick={() => setLibraryCollapsed(!libraryCollapsed)}
+            >
+              <h2>📁 Library</h2>
+              <button
+                className="collapsible-toggle"
+                aria-label={libraryCollapsed ? "Expand library" : "Collapse library"}
+              >
+                <span className={`chevron${libraryCollapsed ? " collapsed" : ""}`}>▼</span>
+              </button>
+            </div>
+            <div className={`collapsible-body ${libraryCollapsed ? "collapsed" : "expanded"}`}>
+              <UploadSection />
+              <SongList onLoadSong={handleLoadSong} />
+            </div>
+          </div>
         </div>
 
         {/* Player section – always in DOM for E2E compatibility */}
@@ -91,7 +118,7 @@ export default function App() {
 
         {/* EQ section */}
         <div className="tab-section">
-          <Equalizer />
+          <Equalizer collapsed={eqCollapsed} onToggle={() => setEqCollapsed(!eqCollapsed)} />
         </div>
       </main>
 

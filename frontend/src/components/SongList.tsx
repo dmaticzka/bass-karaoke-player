@@ -32,8 +32,8 @@ export function SongList({ onLoadSong }: Props) {
   };
 
   return (
-    <section className="card" id="songs-section">
-      <h2>
+    <section id="songs-section" className="sub-section">
+      <h3 className="sub-section-heading">
         Songs
         <button
           id="refresh-btn"
@@ -44,7 +44,7 @@ export function SongList({ onLoadSong }: Props) {
         >
           ↻
         </button>
-      </h2>
+      </h3>
 
       <ul className="song-list" id="song-list">
         {songs.length === 0 ? (

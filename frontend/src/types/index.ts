@@ -98,10 +98,10 @@ export const EQ_PRESETS: Record<string, EqBand[]> = {
 };
 
 export const STEM_COLORS: Record<StemName, string> = {
-  drums: "#f97316",
-  bass: "#3b82f6",
-  vocals: "#a855f7",
-  other: "#22c55e",
+  drums: "#c0c0c0",
+  bass: "#909090",
+  vocals: "#d8d8d8",
+  other: "#a0a0a0",
 };
 
 export type AppTab = "library" | "player" | "eq";

@@ -24,7 +24,7 @@ function drawCurve(canvas: HTMLCanvasElement, bands: EqBand[]): void {
   // Gain range: -14 to +14 dB → y (0 at centre)
   const gainToY = (g: number) => H / 2 - (g / 14) * (H / 2 - 4);
 
-  ctx.strokeStyle = "#e94560";
+  ctx.strokeStyle = "#b0b0b0";
   ctx.lineWidth = 2;
   ctx.beginPath();
 
@@ -54,7 +54,7 @@ function drawCurve(canvas: HTMLCanvasElement, bands: EqBand[]): void {
   ctx.stroke();
 }
 
-export function Equalizer() {
+export function Equalizer({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const activeSong = usePlayerStore((s) => s.activeSong);
   const eqMode = usePlayerStore((s) => s.eqMode);
   const activeStemForEq = usePlayerStore((s) => s.activeStemForEq);
@@ -112,91 +112,101 @@ export function Equalizer() {
 
   return (
     <section className="card" id="eq-section" aria-label="Equalizer">
-      <h2>🎚 Equalizer</h2>
-
-      {/* Frequency response curve */}
-      <canvas
-        ref={canvasRef}
-        className="eq-curve"
-        width={600}
-        height={80}
-        aria-hidden="true"
-      />
-
-      {/* Mode toggle */}
-      <div className="eq-mode-row">
+      <div className="collapsible-header" onClick={onToggle}>
+        <h2>🎚 Equalizer</h2>
         <button
-          className={`btn btn-sm ${eqMode === "global" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setEqMode("global")}
+          className="collapsible-toggle"
+          aria-label={collapsed ? "Expand equalizer" : "Collapse equalizer"}
         >
-          Global
+          <span className={`chevron${collapsed ? " collapsed" : ""}`}>▼</span>
         </button>
-        <button
-          className={`btn btn-sm ${eqMode === "per-stem" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setEqMode("per-stem")}
-        >
-          Per Stem
-        </button>
-
-        {eqMode === "per-stem" && stems.length > 0 && (
-          <div className="eq-stem-tabs">
-            {stems.map((stem) => (
-              <button
-                key={stem}
-                className={`btn btn-sm ${activeStemForEq === stem ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setActiveStemForEq(stem)}
-              >
-                {stem}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Presets */}
-        <select
-          className="eq-preset-select"
-          defaultValue=""
-          onChange={(e) => {
-            if (e.target.value) handlePreset(e.target.value);
-            e.target.value = "";
-          }}
-          aria-label="EQ preset"
-        >
-          <option value="" disabled>
-            Preset…
-          </option>
-          {Object.keys(EQ_PRESETS).map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
       </div>
 
-      {/* Band sliders */}
-      <div className="eq-bands">
-        {displayBands.map((band, i) => (
-          <div key={band.freq} className="eq-band">
-            <output className="eq-gain-value">
-              {band.gain > 0 ? "+" : ""}
-              {band.gain} dB
-            </output>
-            <input
-              type="range"
-              className="eq-slider"
-              min={-12}
-              max={12}
-              step={0.5}
-              value={band.gain}
-              aria-label={`${band.label} EQ`}
-              onChange={(e) => handleBandChange(i, Number(e.target.value))}
-            />
-            <span className="eq-freq-label">{band.label}</span>
-            <span className="eq-freq-hz">
-              {band.freq >= 1000 ? `${band.freq / 1000}k` : band.freq} Hz
-            </span>
-          </div>
-        ))}
+      <div className={`collapsible-body ${collapsed ? "collapsed" : "expanded"}`}>
+        {/* Frequency response curve */}
+        <canvas
+          ref={canvasRef}
+          className="eq-curve"
+          width={600}
+          height={80}
+          aria-hidden="true"
+        />
+
+        {/* Mode toggle */}
+        <div className="eq-mode-row">
+          <button
+            className={`btn btn-sm ${eqMode === "global" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setEqMode("global")}
+          >
+            Global
+          </button>
+          <button
+            className={`btn btn-sm ${eqMode === "per-stem" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setEqMode("per-stem")}
+          >
+            Per Stem
+          </button>
+
+          {eqMode === "per-stem" && stems.length > 0 && (
+            <div className="eq-stem-tabs">
+              {stems.map((stem) => (
+                <button
+                  key={stem}
+                  className={`btn btn-sm ${activeStemForEq === stem ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setActiveStemForEq(stem)}
+                >
+                  {stem}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Presets */}
+          <select
+            className="eq-preset-select"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) handlePreset(e.target.value);
+              e.target.value = "";
+            }}
+            aria-label="EQ preset"
+          >
+            <option value="" disabled>
+              Preset…
+            </option>
+            {Object.keys(EQ_PRESETS).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Band sliders */}
+        <div className="eq-bands">
+          {displayBands.map((band, i) => (
+            <div key={band.freq} className="eq-band">
+              <output className="eq-gain-value">
+                {band.gain > 0 ? "+" : ""}
+                {band.gain} dB
+              </output>
+              <input
+                type="range"
+                className="eq-slider"
+                min={-12}
+                max={12}
+                step={0.5}
+                value={band.gain}
+                aria-label={`${band.label} EQ`}
+                onChange={(e) => handleBandChange(i, Number(e.target.value))}
+              />
+              <span className="eq-freq-label">{band.label}</span>
+              <span className="eq-freq-hz">
+                {band.freq >= 1000 ? `${band.freq / 1000}k` : band.freq} Hz
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

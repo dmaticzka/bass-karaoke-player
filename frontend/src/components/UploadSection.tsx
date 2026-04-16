@@ -55,8 +55,8 @@ export function UploadSection() {
   };
 
   return (
-    <section className="card" id="upload-section">
-      <h2>Upload Song</h2>
+    <section id="upload-section">
+      <h3 className="sub-section-heading">Upload Song</h3>
 
       <div
         id="drop-zone"
