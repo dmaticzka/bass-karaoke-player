@@ -77,7 +77,7 @@ export function PlayerSection() {
           encoded = await resp.arrayBuffer();
           audioCache.set(url, encoded);
         }
-        const audio = await ctx.decodeAudioData(encoded.slice(0));
+        const audio = await ctx.decodeAudioData(encoded);
         return { stem, audio };
       }),
     );

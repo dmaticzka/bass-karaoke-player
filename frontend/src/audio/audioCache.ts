@@ -23,7 +23,10 @@ export function get(url: string): ArrayBuffer | undefined {
   // Promote to MRU position by re-inserting.
   cache.delete(url);
   cache.set(url, bytes);
-  return bytes.slice().buffer;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
 }
 
 /**
@@ -33,8 +36,10 @@ export function get(url: string): ArrayBuffer | undefined {
  */
 export function set(url: string, bytes: ArrayBuffer): void {
   // Remove any existing entry so we can re-insert at the MRU end.
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(new Uint8Array(bytes));
   cache.delete(url);
-  cache.set(url, new Uint8Array(bytes.slice(0)));
+  cache.set(url, copy);
   if (cache.size > MAX_ENTRIES) {
     // The first key in Map iteration order is the LRU entry.
     cache.delete(cache.keys().next().value as string);
