@@ -56,7 +56,7 @@ export function UploadSection() {
 
   return (
     <section id="upload-section">
-      <h3 style={{ fontSize: "0.9rem", color: "#aaa", marginBottom: "0.5rem", fontWeight: 600 }}>Upload Song</h3>
+      <h3 className="sub-section-heading">Upload Song</h3>
 
       <div
         id="drop-zone"

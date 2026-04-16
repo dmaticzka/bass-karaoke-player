@@ -616,6 +616,20 @@ a:hover { text-decoration: underline; }
   .app-footer { display: block; }
 }
 
+/* ---------- Sub-section headings (inside Library card) ---------- */
+.sub-section-heading {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sub-section {
+  margin-top: 0.75rem;
+}
+
 /* ---------- Collapsible sections ---------- */
 .collapsible-header {
   display: flex;
@@ -661,7 +675,7 @@ a:hover { text-decoration: underline; }
   pointer-events: none;
 }
 .collapsible-body.expanded {
-  max-height: 2000px;
+  max-height: 5000px;
   opacity: 1;
 }
 
