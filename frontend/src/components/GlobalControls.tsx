@@ -3,10 +3,9 @@ import { usePlayerStore } from "../store/playerStore";
 interface Props {
   onApply: () => Promise<void>;
   onReset: () => Promise<void>;
-  onCache: () => Promise<void>;
 }
 
-export function GlobalControls({ onApply, onReset, onCache }: Props) {
+export function GlobalControls({ onApply, onReset }: Props) {
   const pitch = usePlayerStore((s) => s.pitch);
   const tempo = usePlayerStore((s) => s.tempo);
   const isLoading = usePlayerStore((s) => s.isLoading);
@@ -60,14 +59,6 @@ export function GlobalControls({ onApply, onReset, onCache }: Props) {
           onClick={() => void onApply()}
         >
           Apply
-        </button>
-        <button
-          id="cache-btn"
-          className="btn btn-primary"
-          disabled={disabled}
-          onClick={() => void onCache()}
-        >
-          Cache Version
         </button>
         <button
           id="reset-btn"
