@@ -14,6 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install caveman skill for GitHub Copilot
+        run: npx --yes skills add JuliusBrussee/caveman -a github-copilot
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
