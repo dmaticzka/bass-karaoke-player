@@ -1,4 +1,5 @@
 import { usePlayerStore } from "../store/playerStore";
+import { LoaderCircle, Music2, Pause, Play } from "lucide-react";
 
 interface Props {
   onPlayPause: () => void;
@@ -29,7 +30,8 @@ export function MiniPlayer({ onPlayPause, onNavigatePlayer }: Props) {
           onClick={onNavigatePlayer}
           aria-label={`Go to player: ${activeSong.filename}`}
         >
-          🎵 {activeSong.filename}
+          <Music2 size={14} aria-hidden="true" />
+          {activeSong.filename}
         </button>
 
         <button
@@ -38,7 +40,13 @@ export function MiniPlayer({ onPlayPause, onNavigatePlayer }: Props) {
           onClick={onPlayPause}
           aria-label={isPlaying ? "Pause" : "Play"}
         >
-          {isLoading ? "⏳" : isPlaying ? "⏸" : "▶"}
+          {isLoading ? (
+            <LoaderCircle size={18} className="icon-spin" />
+          ) : isPlaying ? (
+            <Pause size={18} />
+          ) : (
+            <Play size={18} />
+          )}
         </button>
       </div>
     </div>

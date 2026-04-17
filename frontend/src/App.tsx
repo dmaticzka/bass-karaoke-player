@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Folder, Music2 } from "lucide-react";
 import { usePlayerStore } from "./store/playerStore";
 import { api } from "./api/client";
 import { UploadSection } from "./components/UploadSection";
@@ -78,7 +79,10 @@ export default function App() {
     <div className="app-shell">
       {/* Sticky header */}
       <header className="app-header">
-        <h1>🎵 Bass Karaoke Player</h1>
+        <h1>
+          <Music2 size={18} aria-hidden="true" />
+          Bass Karaoke Player
+        </h1>
         {activeTab !== "library" && activeSong && (
           <p className="subtitle">{activeSong.filename}</p>
         )}
@@ -98,7 +102,10 @@ export default function App() {
               className="collapsible-header"
               onClick={() => setLibraryCollapsed(!libraryCollapsed)}
             >
-              <h2>📁 Library</h2>
+              <h2>
+                <Folder size={18} aria-hidden="true" />
+                Library
+              </h2>
               <button
                 className="collapsible-toggle"
                 aria-label={libraryCollapsed ? "Expand library" : "Collapse library"}
