@@ -36,7 +36,11 @@ export function get(url: string): ArrayBuffer | undefined {
 export function set(url: string, bytes: ArrayBuffer): void {
   // Remove any existing entry so we can re-insert at the MRU end.
   cache.delete(url);
-  const copy = new Uint8Array(bytes);
+  // Make a deep copy so decodeAudioData() calls using the original request
+  // buffer cannot detach or mutate the cached backing buffer.
+  const source = new Uint8Array(bytes);
+  const copy = new Uint8Array(source.byteLength);
+  copy.set(source);
   cache.set(url, copy);
   if (cache.size > MAX_ENTRIES) {
     // The first key in Map iteration order is the LRU entry.
