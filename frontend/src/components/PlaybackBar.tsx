@@ -1,4 +1,4 @@
-import { Pause, Play, Square } from "lucide-react";
+import { LoaderCircle, Pause, Play, Square } from "lucide-react";
 import { usePlayerStore } from "../store/playerStore";
 
 interface Props {
@@ -136,7 +136,7 @@ export function PlaybackBar({
         >
           {isLoading ? (
             <>
-              <span aria-hidden="true">⏳</span>
+              <LoaderCircle size={22} className="icon-spin" aria-hidden="true" />
               <span className="sr-only">Loading…</span>
             </>
           ) : isPlaying ? (
@@ -244,4 +244,3 @@ export function PlaybackBar({
     </div>
   );
 }
-

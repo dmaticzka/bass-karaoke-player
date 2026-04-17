@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import * as eng from "../audio/engine";
@@ -37,6 +37,7 @@ export function PlayerSection() {
   const setLoopStart = usePlayerStore((s) => s.setLoopStart);
   const setLoopEnd = usePlayerStore((s) => s.setLoopEnd);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
+  const [stemsCollapsed, setStemsCollapsed] = useState(false);
 
   const versionPollRef = useRef<number | null>(null);
   const isPlayingRef = useRef(isPlaying);
@@ -424,10 +425,26 @@ export function PlayerSection() {
 
       <VersionsPicker onSelectVersion={handleSelectVersion} />
 
-      <StemsStack
-        stems={activeSong.stems}
-        loading={usePlayerStore.getState().isLoading}
-      />
+      <div className="stems-section">
+        <div
+          className="collapsible-header"
+          onClick={() => setStemsCollapsed(!stemsCollapsed)}
+        >
+          <h3 className="sub-section-heading">Stem Volumes</h3>
+          <button
+            className="collapsible-toggle"
+            aria-label={stemsCollapsed ? "Expand stem volumes" : "Collapse stem volumes"}
+          >
+            <span className={`chevron${stemsCollapsed ? " collapsed" : ""}`}>▼</span>
+          </button>
+        </div>
+        <div className={`collapsible-body ${stemsCollapsed ? "collapsed" : "expanded"}`}>
+          <StemsStack
+            stems={activeSong.stems}
+            loading={usePlayerStore.getState().isLoading}
+          />
+        </div>
+      </div>
 
       <PlaybackBar
         onPlayPause={handlePlayPause}
