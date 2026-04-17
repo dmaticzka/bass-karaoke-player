@@ -326,27 +326,6 @@ export function PlayerSection() {
     }
   };
 
-  const handleCache = async () => {
-    if (!activeSong) return;
-    const pitchSemitones = pitch;
-    const tempoRatio = tempo / 100;
-    try {
-      const result = await api.createVersion(activeSong.id, {
-        pitch_semitones: pitchSemitones,
-        tempo_ratio: tempoRatio,
-      });
-      if (result.status === "ready") {
-        await fetchVersions();
-        await handleSelectVersion(pitchSemitones, tempoRatio);
-      } else {
-        startVersionPolling();
-        await fetchVersions();
-      }
-    } catch (e) {
-      console.error("Cache failed:", e);
-    }
-  };
-
   const handleSelectVersion = async (vPitch: number, vTempo: number) => {
     if (
       activeVersion.pitch === vPitch &&
@@ -420,7 +399,6 @@ export function PlayerSection() {
       <GlobalControls
         onApply={handleApply}
         onReset={handleReset}
-        onCache={handleCache}
       />
 
       <VersionsPicker onSelectVersion={handleSelectVersion} />
