@@ -7,9 +7,35 @@ import { GlobalControls } from "./GlobalControls";
 import { StemsStack } from "./StemsStack";
 import { PlaybackBar } from "./PlaybackBar";
 import { VersionsPicker } from "./VersionsPicker";
-import type { StemName } from "../types";
+import type { StemName, Version } from "../types";
 
 const POLL_MS = 2000;
+const LAST_SELECTED_VERSIONS_KEY = "bass-karaoke-player:last-selected-versions";
+
+type LastSelectedVersion = { pitch: number; tempo: number };
+type LastSelectedVersionsBySong = Record<string, LastSelectedVersion>;
+
+const readLastSelectedVersions = (): LastSelectedVersionsBySong => {
+  try {
+    const raw = window.localStorage.getItem(LAST_SELECTED_VERSIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const result: LastSelectedVersionsBySong = {};
+    for (const [songId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== "object") continue;
+      const pitch = (value as { pitch?: unknown }).pitch;
+      const tempo = (value as { tempo?: unknown }).tempo;
+      if (typeof pitch === "number" && typeof tempo === "number") {
+        result[songId] = { pitch, tempo };
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+};
 
 export function PlayerSection() {
   const activeSong = usePlayerStore((s) => s.activeSong);
@@ -40,8 +66,62 @@ export function PlayerSection() {
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
 
   const versionPollRef = useRef<number | null>(null);
+  const loadRequestRef = useRef(0);
+  const lastSelectedVersionsRef = useRef<LastSelectedVersionsBySong>(
+    readLastSelectedVersions(),
+  );
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+
+  const persistLastSelectedVersion = (
+    songId: string,
+    pitchSemitones: number,
+    tempoRatio: number,
+  ) => {
+    lastSelectedVersionsRef.current = {
+      ...lastSelectedVersionsRef.current,
+      [songId]: { pitch: pitchSemitones, tempo: tempoRatio },
+    };
+    try {
+      window.localStorage.setItem(
+        LAST_SELECTED_VERSIONS_KEY,
+        JSON.stringify(lastSelectedVersionsRef.current),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const applyVersions = (versions: Version[]) => {
+    setVersions(versions);
+    const hasProcessing = versions.some(
+      (v) => v.status === "processing" || v.status === "partial",
+    );
+    if (hasProcessing) startVersionPolling();
+    else stopVersionPolling();
+  };
+
+  const resolvePreferredVersion = (
+    songId: string,
+    versions: Version[],
+  ): LastSelectedVersion => {
+    const saved = lastSelectedVersionsRef.current[songId];
+    if (!saved) return { pitch: 0, tempo: 1.0 };
+
+    const matched = versions.find(
+      (v) =>
+        v.pitch_semitones === saved.pitch &&
+        v.tempo_ratio === saved.tempo &&
+        v.status !== "processing",
+    );
+    if (!matched) return { pitch: 0, tempo: 1.0 };
+    return { pitch: matched.pitch_semitones, tempo: matched.tempo_ratio };
+  };
+
+  const beginLoadRequest = () => {
+    loadRequestRef.current += 1;
+    return loadRequestRef.current;
+  };
 
   // -----------------------------------------------------------------------
   // Stem loading
@@ -51,6 +131,7 @@ export function PlayerSection() {
     tempoRatio: number,
   ) => {
     if (!activeSong) return;
+    const requestId = loadRequestRef.current;
     const ctx = eng.getOrCreateCtx();
     eng.clearStemNodes();
 
@@ -85,6 +166,8 @@ export function PlayerSection() {
       }),
     );
 
+    if (requestId !== loadRequestRef.current) return;
+
     const stemVolumes = usePlayerStore.getState().stemVolumes;
     const stemMuted = usePlayerStore.getState().stemMuted;
 
@@ -104,12 +187,7 @@ export function PlayerSection() {
     if (!activeSong) return;
     try {
       const data = await api.getVersions(activeSong.id);
-      setVersions(data.versions);
-      const hasProcessing = data.versions.some(
-        (v) => v.status === "processing" || v.status === "partial",
-      );
-      if (hasProcessing) startVersionPolling();
-      else stopVersionPolling();
+      applyVersions(data.versions);
     } catch {
       // ignore
     }
@@ -121,11 +199,7 @@ export function PlayerSection() {
       if (!activeSong) return;
       try {
         const data = await api.getVersions(activeSong.id);
-        setVersions(data.versions);
-        const hasProcessing = data.versions.some(
-          (v) => v.status === "processing" || v.status === "partial",
-        );
-        if (!hasProcessing) stopVersionPolling();
+        applyVersions(data.versions);
       } catch {
         // ignore
       }
@@ -292,19 +366,22 @@ export function PlayerSection() {
     if (!activeSong) return;
     const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
+    const requestId = beginLoadRequest();
     stopAll();
     setIsLoading(true);
     try {
       const pitchSemitones = pitch;
       const tempoRatio = tempo / 100;
       await fetchAndDecodeStems(pitchSemitones, tempoRatio);
+      if (requestId !== loadRequestRef.current) return;
       setActiveVersion(pitchSemitones, tempoRatio);
+      persistLastSelectedVersion(activeSong.id, pitchSemitones, tempoRatio);
       await fetchVersions();
-      if (wasPlaying) playAll(savedOffset);
+      if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
     } catch (e) {
       console.error("Apply failed:", e);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestRef.current) setIsLoading(false);
     }
   };
 
@@ -314,15 +391,18 @@ export function PlayerSection() {
     if (!activeSong) return;
     const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
+    const requestId = beginLoadRequest();
     stopAll();
     setActiveVersion(0, 1.0);
+    persistLastSelectedVersion(activeSong.id, 0, 1.0);
     setIsLoading(true);
     try {
       await fetchAndDecodeStems(0, 1);
+      if (requestId !== loadRequestRef.current) return;
       await fetchVersions();
-      if (wasPlaying) playAll(savedOffset);
+      if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestRef.current) setIsLoading(false);
     }
   };
 
@@ -334,16 +414,18 @@ export function PlayerSection() {
       return;
     const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
+    const requestId = beginLoadRequest();
     stopAll();
     setPitch(vPitch);
     setTempo(Math.round(vTempo * 100));
     setActiveVersion(vPitch, vTempo);
+    if (activeSong) persistLastSelectedVersion(activeSong.id, vPitch, vTempo);
     setIsLoading(true);
     try {
       await fetchAndDecodeStems(vPitch, vTempo);
-      if (wasPlaying) playAll(savedOffset);
+      if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestRef.current) setIsLoading(false);
     }
   };
 
@@ -366,11 +448,37 @@ export function PlayerSection() {
     setLoopStart(null);
     setLoopEnd(null);
     initStemControls(activeSong.stems);
+    setVersions([]);
 
+    const requestId = beginLoadRequest();
     setIsLoading(true);
-    void fetchAndDecodeStems(0, 1)
-      .then(() => fetchVersions())
-      .finally(() => setIsLoading(false));
+    void (async () => {
+      let targetPitch = 0;
+      let targetTempo = 1.0;
+      try {
+        const versionsData = await api.getVersions(activeSong.id);
+        if (requestId !== loadRequestRef.current) return;
+        applyVersions(versionsData.versions);
+        const preferred = resolvePreferredVersion(activeSong.id, versionsData.versions);
+        targetPitch = preferred.pitch;
+        targetTempo = preferred.tempo;
+      } catch {
+        if (requestId !== loadRequestRef.current) return;
+        stopVersionPolling();
+      }
+
+      if (requestId !== loadRequestRef.current) return;
+      setPitch(targetPitch);
+      setTempo(Math.round(targetTempo * 100));
+      setActiveVersion(targetPitch, targetTempo);
+      persistLastSelectedVersion(activeSong.id, targetPitch, targetTempo);
+
+      try {
+        await fetchAndDecodeStems(targetPitch, targetTempo);
+      } finally {
+        if (requestId === loadRequestRef.current) setIsLoading(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSong?.id]);
 
