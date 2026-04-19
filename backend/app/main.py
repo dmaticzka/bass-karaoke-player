@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import shutil
 import subprocess
-from json import JSONDecodeError, loads
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from json import JSONDecodeError, loads
 from pathlib import Path
 
 import aiofiles
@@ -146,14 +147,18 @@ def _read_song_metadata(audio_path: Path) -> tuple[str | None, str | None]:
     if not isinstance(tags_raw, dict):
         return (None, None)
 
-    tags = {str(k).lower(): v for k, v in tags_raw.items()}
+    tags: dict[str, str] = {}
+    for k, v in tags_raw.items():
+        normalized_value = _normalize_tag(v)
+        if normalized_value is not None:
+            tags[str(k).lower()] = normalized_value
     artist = (
-        _normalize_tag(tags.get("artist"))
-        or _normalize_tag(tags.get("album_artist"))
-        or _normalize_tag(tags.get("albumartist"))
-        or _normalize_tag(tags.get("band"))
+        tags.get("artist")
+        or tags.get("album_artist")
+        or tags.get("albumartist")
+        or tags.get("band")
     )
-    title = _normalize_tag(tags.get("title"))
+    title = tags.get("title")
     return (artist, title)
 
 
@@ -339,7 +344,7 @@ def _song_router() -> APIRouter:
                     )
                 await out.write(chunk)
 
-        artist, title = _read_song_metadata(dest)
+        artist, title = await asyncio.to_thread(_read_song_metadata, dest)
         storage.update_metadata(song.id, artist=artist, title=title)
 
         storage.update_status(song.id, SongStatus.SPLITTING)

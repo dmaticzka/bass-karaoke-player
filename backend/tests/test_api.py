@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import io
-import subprocess
 from pathlib import Path
+from subprocess import CompletedProcess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -145,7 +145,7 @@ class TestSongMetadataExtraction:
 
         with patch(
             "backend.app.main.subprocess.run",
-            return_value=subprocess.CompletedProcess(
+            return_value=CompletedProcess(
                 args=["ffprobe"],
                 returncode=0,
                 stdout=(
@@ -163,7 +163,7 @@ class TestSongMetadataExtraction:
 
         with patch(
             "backend.app.main.subprocess.run",
-            return_value=subprocess.CompletedProcess(
+            return_value=CompletedProcess(
                 args=["ffprobe"],
                 returncode=1,
                 stdout="",

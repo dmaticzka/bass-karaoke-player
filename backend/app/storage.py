@@ -300,7 +300,9 @@ class SongStorage:
     def create_song(
         self, filename: str, artist: str | None = None, title: str | None = None
     ) -> Song:
-        song = Song(id=self.new_song_id(), filename=filename, artist=artist, title=title)
+        song = Song(
+            id=self.new_song_id(), filename=filename, artist=artist, title=title
+        )
         self.save_song(song)
         return song
 
