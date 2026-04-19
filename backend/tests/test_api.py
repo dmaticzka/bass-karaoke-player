@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from subprocess import CompletedProcess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -140,7 +139,16 @@ class TestSongUpload:
 
 
 class TestSongMetadataExtraction:
+    def test_normalize_tag(self) -> None:
+        import backend.app.main as main_module
+
+        assert main_module._normalize_tag("  Artist  ") == "Artist"
+        assert main_module._normalize_tag("   ") is None
+        assert main_module._normalize_tag(123) is None
+
     def test_ffprobe_json_is_parsed(self) -> None:
+        from subprocess import CompletedProcess
+
         import backend.app.main as main_module
 
         with patch(
@@ -159,6 +167,8 @@ class TestSongMetadataExtraction:
         assert title == "Master of Puppets"
 
     def test_ffprobe_failure_returns_empty_metadata(self) -> None:
+        from subprocess import CompletedProcess
+
         import backend.app.main as main_module
 
         with patch(
