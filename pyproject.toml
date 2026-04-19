@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "fastapi==0.135.3",
     "uvicorn[standard]==0.44.0",
-    "python-multipart==0.0.24",
+    "python-multipart==0.0.26",
     "aiofiles==25.1.0",
     "pydantic==2.12.5",
     "demucs==4.0.1",
@@ -33,13 +33,13 @@ gpu = [
 
 [dependency-groups]
 dev = [
-    "pytest==9.0.2",
+    "pytest==9.0.3",
     "pytest-asyncio==1.3.0",
     "pytest-cov==7.1.0",
     "httpx==0.28.1",
-    "ruff==0.15.9",
+    "ruff==0.15.10",
     "mypy==1.20.0",
-    "types-aiofiles==25.1.0.20251011",
+    "types-aiofiles==25.1.0.20260409",
     "playwright==1.58.0",
     "pytest-playwright==0.7.2",
 ]
