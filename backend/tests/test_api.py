@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -118,6 +119,60 @@ class TestSongUpload:
             )
         assert resp.status_code == 201
         assert resp.json()["filename"] == "track.wav"
+
+    def test_upload_reads_artist_and_title_metadata(self, client: TestClient) -> None:
+        with (
+            patch("backend.app.main._split_song_task"),
+            patch(
+                "backend.app.main._read_song_metadata",
+                return_value=("Red Hot Chili Peppers", "Californication"),
+            ),
+        ):
+            resp = client.post(
+                "/api/songs",
+                files={"file": ("song.mp3", io.BytesIO(b"\x00" * 100), "audio/mpeg")},
+            )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["artist"] == "Red Hot Chili Peppers"
+        assert data["title"] == "Californication"
+
+
+class TestSongMetadataExtraction:
+    def test_ffprobe_json_is_parsed(self) -> None:
+        import backend.app.main as main_module
+
+        with patch(
+            "backend.app.main.subprocess.run",
+            return_value=subprocess.CompletedProcess(
+                args=["ffprobe"],
+                returncode=0,
+                stdout=(
+                    '{"format":{"tags":{"ARTIST":"Metallica","TITLE":"Master of Puppets"}}}'
+                ),
+                stderr="",
+            ),
+        ):
+            artist, title = main_module._read_song_metadata(Path("/tmp/song.mp3"))
+        assert artist == "Metallica"
+        assert title == "Master of Puppets"
+
+    def test_ffprobe_failure_returns_empty_metadata(self) -> None:
+        import backend.app.main as main_module
+
+        with patch(
+            "backend.app.main.subprocess.run",
+            return_value=subprocess.CompletedProcess(
+                args=["ffprobe"],
+                returncode=1,
+                stdout="",
+                stderr="failed",
+            ),
+        ):
+            artist, title = main_module._read_song_metadata(Path("/tmp/song.mp3"))
+        assert artist is None
+        assert title is None
 
 
 class TestGetSong:

@@ -1,6 +1,7 @@
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import type { Song } from "../types";
+import { getSongArtist, getSongLabel, getSongTitle } from "../utils/songDisplay";
 
 interface Props {
   onLoadSong: (song: Song) => void;
@@ -56,8 +57,9 @@ export function SongList({ onLoadSong }: Props) {
               className={`song-item${activeSong?.id === song.id ? " active" : ""}`}
               data-id={song.id}
             >
-              <span className="song-name" title={song.filename}>
-                {song.filename}
+              <span className="song-name" title={getSongLabel(song)}>
+                <span className="song-artist">{getSongArtist(song)}</span>
+                <span className="song-title">{getSongTitle(song)}</span>
               </span>
 
               <span className={`song-status-badge status-${song.status}`}>
@@ -77,7 +79,7 @@ export function SongList({ onLoadSong }: Props) {
                   className="btn btn-sm btn-icon"
                   title="Delete song"
                   onClick={() => void handleDelete(song.id)}
-                  aria-label={`Delete ${song.filename}`}
+                  aria-label={`Delete ${getSongTitle(song)}`}
                 >
                   🗑
                 </button>

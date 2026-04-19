@@ -23,12 +23,26 @@ class TestSongStorage:
     def test_create_and_load_song(self, storage: SongStorage) -> None:
         song = storage.create_song("my_song.mp3")
         assert song.filename == "my_song.mp3"
+        assert song.artist is None
+        assert song.title is None
         assert song.status is SongStatus.UPLOADED
 
         loaded = storage.load_song(song.id)
         assert loaded is not None
         assert loaded.id == song.id
         assert loaded.filename == "my_song.mp3"
+
+    def test_update_metadata(self, storage: SongStorage) -> None:
+        song = storage.create_song("my_song.mp3")
+        updated = storage.update_metadata(song.id, artist="ABBA", title="Dancing Queen")
+        assert updated is not None
+        assert updated.artist == "ABBA"
+        assert updated.title == "Dancing Queen"
+
+        loaded = storage.load_song(song.id)
+        assert loaded is not None
+        assert loaded.artist == "ABBA"
+        assert loaded.title == "Dancing Queen"
 
     def test_load_nonexistent_song_returns_none(self, storage: SongStorage) -> None:
         assert storage.load_song("does-not-exist") is None

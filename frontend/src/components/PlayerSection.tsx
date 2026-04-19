@@ -8,6 +8,7 @@ import { StemsStack } from "./StemsStack";
 import { PlaybackBar } from "./PlaybackBar";
 import { VersionsPicker } from "./VersionsPicker";
 import type { StemName, Version } from "../types";
+import { getSongArtist, getSongTitle } from "../utils/songDisplay";
 
 const POLL_MS = 2000;
 const LAST_SELECTED_VERSIONS_KEY = "bass-karaoke-player:last-selected-versions";
@@ -502,7 +503,10 @@ export function PlayerSection() {
 
   return (
     <section id="player-section" className="card">
-      <h2 id="player-title">{activeSong.filename}</h2>
+      <h2 id="player-title" className="player-song-title">
+        <span className="song-artist">{getSongArtist(activeSong)}</span>
+        <span className="song-title">{getSongTitle(activeSong)}</span>
+      </h2>
 
       <GlobalControls
         onApply={handleApply}

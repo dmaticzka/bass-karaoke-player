@@ -297,8 +297,21 @@ class SongStorage:
     def new_song_id() -> str:
         return str(uuid.uuid4())
 
-    def create_song(self, filename: str) -> Song:
-        song = Song(id=self.new_song_id(), filename=filename)
+    def create_song(
+        self, filename: str, artist: str | None = None, title: str | None = None
+    ) -> Song:
+        song = Song(id=self.new_song_id(), filename=filename, artist=artist, title=title)
+        self.save_song(song)
+        return song
+
+    def update_metadata(
+        self, song_id: str, artist: str | None = None, title: str | None = None
+    ) -> Song | None:
+        song = self.load_song(song_id)
+        if song is None:
+            return None
+        song.artist = artist
+        song.title = title
         self.save_song(song)
         return song
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import subprocess
+from json import JSONDecodeError, loads
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -96,6 +98,63 @@ def _configure_logging() -> None:
             LOG_LEVEL,
             ", ".join(sorted(_VALID_LOG_LEVELS)),
         )
+
+
+def _normalize_tag(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized if normalized else None
+
+
+def _read_song_metadata(audio_path: Path) -> tuple[str | None, str | None]:
+    """Best-effort metadata extraction for artist and title using ffprobe."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format_tags",
+                "-of",
+                "json",
+                str(audio_path),
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+    except OSError:
+        logger.exception("Unable to execute ffprobe for metadata extraction")
+        return (None, None)
+
+    if result.returncode != 0:
+        logger.debug("ffprobe metadata read failed for %s", audio_path)
+        return (None, None)
+
+    try:
+        payload = loads(result.stdout)
+    except JSONDecodeError:
+        logger.debug("ffprobe returned non-JSON metadata output for %s", audio_path)
+        return (None, None)
+
+    format_data = payload.get("format")
+    if not isinstance(format_data, dict):
+        return (None, None)
+    tags_raw = format_data.get("tags")
+    if not isinstance(tags_raw, dict):
+        return (None, None)
+
+    tags = {str(k).lower(): v for k, v in tags_raw.items()}
+    artist = (
+        _normalize_tag(tags.get("artist"))
+        or _normalize_tag(tags.get("album_artist"))
+        or _normalize_tag(tags.get("albumartist"))
+        or _normalize_tag(tags.get("band"))
+    )
+    title = _normalize_tag(tags.get("title"))
+    return (artist, title)
 
 
 def create_app() -> FastAPI:
@@ -279,6 +338,9 @@ def _song_router() -> APIRouter:
                         detail=f"File too large. Maximum size is {MAX_UPLOAD_BYTES // 1024 // 1024} MB.",
                     )
                 await out.write(chunk)
+
+        artist, title = _read_song_metadata(dest)
+        storage.update_metadata(song.id, artist=artist, title=title)
 
         storage.update_status(song.id, SongStatus.SPLITTING)
         background_tasks.add_task(_split_song_task, song.id)
