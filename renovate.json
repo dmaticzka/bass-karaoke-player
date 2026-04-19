@@ -6,6 +6,9 @@
   "schedule": ["before 6am on Monday"],
   "minimumReleaseAge": "7 days",
   "automerge": true,
+  "lockFileMaintenance": {
+    enabled: true,
+  },
   "customManagers": [
     {
       "description": "Track uv required-version in pyproject.toml as the same package pinned in the Dockerfile",
