@@ -149,9 +149,11 @@ def _read_song_metadata(audio_path: Path) -> tuple[str | None, str | None]:
 
     tags: dict[str, str] = {}
     for k, v in tags_raw.items():
+        if not isinstance(k, str):
+            continue
         normalized_value = _normalize_tag(v)
         if normalized_value is not None:
-            tags[str(k).lower()] = normalized_value
+            tags[k.lower()] = normalized_value
     artist = (
         tags.get("artist")
         or tags.get("album_artist")
