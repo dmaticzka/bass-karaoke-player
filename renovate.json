@@ -28,7 +28,7 @@
     },
     {
       "description": "Combine all Python backend dependency updates into a single PR",
-      "matchManagers": ["uv"],
+      "matchDatasources": ["pypi"],
       "groupName": "Python backend dependencies"
     },
     {
