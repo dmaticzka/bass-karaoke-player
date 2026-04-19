@@ -52,6 +52,7 @@ export function PlayerSection() {
   const setActiveVersion = usePlayerStore((s) => s.setActiveVersion);
   const initStemControls = usePlayerStore((s) => s.initStemControls);
   const globalEq = usePlayerStore((s) => s.globalEq);
+  const isLoading = usePlayerStore((s) => s.isLoading);
 
   const pitch = usePlayerStore((s) => s.pitch);
   const tempo = usePlayerStore((s) => s.tempo);
@@ -531,7 +532,7 @@ export function PlayerSection() {
         <div className={`collapsible-body ${stemsCollapsed ? "collapsed" : "expanded"}`}>
           <StemsStack
             stems={activeSong.stems}
-            loading={usePlayerStore.getState().isLoading}
+            loading={isLoading}
           />
         </div>
       </div>
