@@ -10,6 +10,8 @@ export type VersionStatus = "ready" | "partial" | "missing" | "processing";
 export interface Song {
   id: string;
   filename: string;
+  artist: string | null;
+  title: string | null;
   status: SongStatus;
   stems: StemName[];
   error_message?: string | null;
