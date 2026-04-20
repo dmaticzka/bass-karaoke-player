@@ -111,6 +111,9 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --group dev --frozen
 
+      - name: Install system dependencies
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Install Playwright browsers
         run: uv run playwright install --with-deps chromium
 

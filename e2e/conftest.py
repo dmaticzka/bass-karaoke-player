@@ -32,8 +32,8 @@ from backend.app.models import SongStatus, StemName
 from backend.app.storage import SongStorage
 from playwright.sync_api import APIRequestContext, Playwright
 
-_TAGGED_ARTIST = "Test Band"
-_TAGGED_TITLE = "Test Song"
+_TAGGED_ARTIST = "Virginia Liston"
+_TAGGED_TITLE = "Evil Minded Blues"
 
 _REPO_ROOT = Path(__file__).parent.parent.resolve()
 
@@ -94,38 +94,16 @@ def ready_song_id(e2e_data_dir: Path) -> str:
 
 
 @pytest.fixture(scope="session")
-def tagged_mp3_bytes(tmp_path_factory: pytest.TempPathFactory) -> bytes:
-    """Return bytes of a 1-second silent MP3 with embedded artist and title tags.
+def tagged_mp3_bytes() -> bytes:
+    """Return bytes of the bundled sample MP3 that has embedded artist/title tags.
 
-    Uses ffmpeg to generate the file and embeds ``artist=Test Band`` /
-    ``title=Test Song`` so that the metadata-extraction pipeline can be
-    exercised end-to-end.
+    Uses ``e2e/media/Evil_Minded_Blues.mp3`` – a public-domain track that is
+    already checked into the repository and carries ``artist=Virginia Liston``
+    and ``title=Evil Minded Blues`` ID3 tags.  Reading a pre-existing file
+    avoids any run-time dependency on ``ffmpeg`` in the test environment.
     """
-    tmp = tmp_path_factory.mktemp("tagged_mp3") / "tagged.mp3"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=r=44100:cl=stereo",
-            "-t",
-            "1",
-            "-codec:a",
-            "libmp3lame",
-            "-q:a",
-            "9",
-            "-metadata",
-            f"artist={_TAGGED_ARTIST}",
-            "-metadata",
-            f"title={_TAGGED_TITLE}",
-            str(tmp),
-        ],
-        check=True,
-        capture_output=True,
-    )
-    return tmp.read_bytes()
+    sample = _REPO_ROOT / "e2e" / "media" / "Evil_Minded_Blues.mp3"
+    return sample.read_bytes()
 
 
 def _make_ready_song_in_storage(
