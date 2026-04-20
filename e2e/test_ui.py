@@ -56,12 +56,13 @@ class TestPageLoad:
 class TestSongList:
     def test_ready_song_appears_in_list(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
-        # The JS fetches /api/songs on load; wait for a real song-item to appear
-        expect(page.locator(".song-item")).to_be_visible()
+        # The JS fetches /api/songs on load; wait for a real song-item to appear.
+        # Use .first because the session may have multiple songs.
+        expect(page.locator(".song-item").first).to_be_visible()
 
     def test_ready_song_shows_ready_badge(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
-        expect(page.locator(".status-ready")).to_be_visible()
+        expect(page.locator(".status-ready").first).to_be_visible()
 
     def test_ready_song_has_load_button(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
