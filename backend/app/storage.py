@@ -302,6 +302,17 @@ class SongStorage:
         self.save_song(song)
         return song
 
+    def update_metadata(
+        self, song_id: str, artist: str | None = None, title: str | None = None
+    ) -> Song | None:
+        song = self.load_song(song_id)
+        if song is None:
+            return None
+        song.artist = artist
+        song.title = title
+        self.save_song(song)
+        return song
+
     def update_status(
         self,
         song_id: str,

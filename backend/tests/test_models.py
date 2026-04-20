@@ -83,6 +83,8 @@ class TestSong:
     def test_default_status(self) -> None:
         song = Song(id="abc", filename="test.mp3")
         assert song.status is SongStatus.UPLOADED
+        assert song.artist is None
+        assert song.title is None
         assert song.stems == []
         assert song.error_message is None
 

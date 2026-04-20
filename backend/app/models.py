@@ -62,6 +62,8 @@ class Song(BaseModel):
 
     id: str
     filename: str
+    artist: str | None = None
+    title: str | None = None
     status: SongStatus = SongStatus.UPLOADED
     stems: list[StemName] = Field(default_factory=list)
     error_message: str | None = None

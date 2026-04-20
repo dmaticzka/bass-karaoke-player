@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 from playwright.sync_api import Page, expect
 
+from e2e.conftest import _TAGGED_ARTIST, _TAGGED_TITLE
 
 # ---------------------------------------------------------------------------
 # Page load
@@ -53,28 +54,41 @@ class TestPageLoad:
 
 
 class TestSongList:
-    def test_ready_song_appears_in_list(
-        self, page: Page, ready_song_id: str
-    ) -> None:
+    def test_ready_song_appears_in_list(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
-        # The JS fetches /api/songs on load; wait for a real song-item to appear
-        expect(page.locator(".song-item")).to_be_visible()
+        # The JS fetches /api/songs on load; wait for a real song-item to appear.
+        # Use .first because the session may have multiple songs.
+        expect(page.locator(".song-item").first).to_be_visible()
 
-    def test_ready_song_shows_ready_badge(
-        self, page: Page, ready_song_id: str
-    ) -> None:
+    def test_ready_song_shows_ready_badge(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
-        expect(page.locator(".status-ready")).to_be_visible()
+        expect(page.locator(".status-ready").first).to_be_visible()
 
-    def test_ready_song_has_load_button(
-        self, page: Page, ready_song_id: str
-    ) -> None:
+    def test_ready_song_has_load_button(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
         expect(page.locator(".song-item .btn-primary").first).to_be_visible()
 
     def test_refresh_button_present(self, page: Page) -> None:
         page.goto("/")
         expect(page.locator("#refresh-btn")).to_be_visible()
+
+    def test_song_without_metadata_shows_unknown_artist(
+        self, page: Page, ready_song_id: str
+    ) -> None:
+        """A song with no embedded tags must display 'Unknown Artist' and filename stem."""
+        page.goto("/")
+        song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
+        expect(song_item.locator(".song-artist")).to_have_text("Unknown Artist")
+        expect(song_item.locator(".song-title")).to_have_text("test_song")
+
+    def test_song_with_metadata_shows_artist_and_title(
+        self, page: Page, ready_song_with_metadata_id: str
+    ) -> None:
+        """A song with embedded tags must display the correct artist and title."""
+        page.goto("/")
+        song_item = page.locator(f'.song-item[data-id="{ready_song_with_metadata_id}"]')
+        expect(song_item.locator(".song-artist")).to_have_text(_TAGGED_ARTIST)
+        expect(song_item.locator(".song-title")).to_have_text(_TAGGED_TITLE)
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +98,13 @@ class TestSongList:
 
 class TestPlayerSection:
     @pytest.fixture()
-    def loaded_player(self, page: Page) -> Page:
-        """Navigate to the app and click Load on the ready song."""
+    def loaded_player(self, page: Page, ready_song_id: str) -> Page:
+        """Navigate to the app and click Load on the *ready_song_id* song."""
         page.goto("/")
-        # Wait for the song list to render and click the first Load button
-        load_btn = page.locator(".song-item .btn-primary").first
+        # Target the specific song row by data-id to be robust when
+        # multiple songs are present in the test session data directory.
+        song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
+        load_btn = song_item.locator(".btn-primary")
         expect(load_btn).to_be_visible()
         load_btn.click()
         return page
@@ -98,9 +114,27 @@ class TestPlayerSection:
         expect(player).not_to_have_class("card hidden")
         expect(player).to_be_visible()
 
-    def test_player_title_shows_filename(self, loaded_player: Page) -> None:
+    def test_player_title_shows_filename_stem_without_metadata(
+        self, loaded_player: Page
+    ) -> None:
+        """Without embedded tags, the title falls back to the filename stem."""
         title = loaded_player.locator("#player-title")
-        expect(title).to_have_text("test_song.mp3")
+        expect(title.locator(".song-artist")).to_have_text("Unknown Artist")
+        # Filename is test_song.mp3 → title fallback strips the extension
+        expect(title.locator(".song-title")).to_have_text("test_song")
+
+    def test_player_title_shows_metadata_when_available(
+        self, page: Page, ready_song_with_metadata_id: str
+    ) -> None:
+        """When a song has embedded tags the player title shows artist and title."""
+        page.goto("/")
+        song_item = page.locator(f'.song-item[data-id="{ready_song_with_metadata_id}"]')
+        load_btn = song_item.locator(".btn-primary")
+        expect(load_btn).to_be_visible()
+        load_btn.click()
+        title = page.locator("#player-title")
+        expect(title.locator(".song-artist")).to_have_text(_TAGGED_ARTIST)
+        expect(title.locator(".song-title")).to_have_text(_TAGGED_TITLE)
 
     def test_stem_cards_created(self, loaded_player: Page) -> None:
         # Four stem cards should be created for the ready song
@@ -125,9 +159,10 @@ class TestPlayerSection:
 class TestEqualizer:
     @pytest.fixture()
     def eq_panel(self, page: Page, ready_song_id: str) -> Page:
-        """Navigate to the app, load a song, then open the EQ tab."""
+        """Navigate to the app, load the ready song, then open the EQ tab."""
         page.goto("/")
-        load_btn = page.locator(".song-item .btn-primary").first
+        song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
+        load_btn = song_item.locator(".btn-primary")
         expect(load_btn).to_be_visible()
         load_btn.click()
         # Navigate to the EQ tab via BottomNav

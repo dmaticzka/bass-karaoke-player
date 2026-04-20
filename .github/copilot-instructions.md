@@ -121,6 +121,35 @@ FRONTEND_DIR=frontend DATA_DIR=data \
 PYTHONPATH=. pytest backend/tests/ -v
 ```
 
+## How to run E2E tests
+
+E2E tests require:
+1. Playwright browsers: `uv run playwright install --with-deps chromium`
+2. A built frontend: `cd frontend && npm ci && npm run build`
+3. System dependencies: `ffmpeg` and `ffprobe` (for backend metadata extraction)
+
+```bash
+PYTHONPATH=. pytest e2e/ -v --no-cov
+```
+
+The e2e suite spins up a real `uvicorn` server against a temporary data directory
+and exercises both the headless API (via `APIRequestContext`) and a real Chromium
+browser (via pytest-playwright).
+
+### E2E test writing rules
+
+* **Never call external tools (`ffmpeg`, `rubberband`, `demucs`, …) from test
+  fixtures.** These tools are available in the Copilot agent environment (via
+  `copilot-setup-steps.yml`) but are NOT pre-installed in the CI e2e runner.
+  Use the pre-existing sample files in `e2e/media/` or generate data with
+  pure-Python helpers (e.g. `wave.open`).
+* When multiple session-scoped fixtures populate the same `e2e_data_dir`,
+  locators that match multiple elements will trigger Playwright's strict-mode
+  violation.  Use `.first` or scope locators with `data-id` attributes.
+* The frontend must be built (`npm run build`) before running UI tests.  The
+  `live_server` fixture prefers `frontend/dist/` if it exists, falling back to
+  `frontend/` for local development.
+
 ## How to lint & format
 
 ```bash

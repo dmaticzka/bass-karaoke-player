@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from playwright.sync_api import APIRequestContext
 
+from e2e.conftest import _TAGGED_ARTIST, _TAGGED_TITLE
 
 # ---------------------------------------------------------------------------
 # Health
@@ -58,6 +59,29 @@ class TestGetSong:
         assert data["id"] == ready_song_id
         assert data["status"] == "ready"
         assert set(data["stems"]) == {"vocals", "bass", "drums", "other"}
+
+    def test_get_ready_song_has_artist_and_title_fields(
+        self, api_context: APIRequestContext, ready_song_id: str
+    ) -> None:
+        """Song response must always include ``artist`` and ``title`` keys."""
+        resp = api_context.get(f"/api/songs/{ready_song_id}")
+        assert resp.ok
+        data = resp.json()
+        # The ready_song_id fixture does not embed metadata, so both are None.
+        assert "artist" in data
+        assert "title" in data
+        assert data["artist"] is None
+        assert data["title"] is None
+
+    def test_get_song_with_metadata_returns_artist_and_title(
+        self, api_context: APIRequestContext, ready_song_with_metadata_id: str
+    ) -> None:
+        """Song with pre-set metadata must expose artist and title."""
+        resp = api_context.get(f"/api/songs/{ready_song_with_metadata_id}")
+        assert resp.ok
+        data = resp.json()
+        assert data["artist"] == _TAGGED_ARTIST
+        assert data["title"] == _TAGGED_TITLE
 
     def test_get_nonexistent_returns_404(self, api_context: APIRequestContext) -> None:
         resp = api_context.get("/api/songs/does-not-exist")
@@ -127,6 +151,29 @@ class TestUpload:
         assert resp.status == 201
         assert resp.json()["filename"] == "track.mp3"
         api_context.delete(f"/api/songs/{resp.json()['id']}")
+
+    def test_upload_tagged_mp3_returns_embedded_metadata(
+        self,
+        api_context: APIRequestContext,
+        tagged_mp3_bytes: bytes,
+    ) -> None:
+        """Uploading a tagged MP3 must parse and return artist and title."""
+        resp = api_context.post(
+            "/api/songs",
+            multipart={
+                "file": {
+                    "name": "tagged_upload.mp3",
+                    "mimeType": "audio/mpeg",
+                    "buffer": tagged_mp3_bytes,
+                }
+            },
+        )
+        assert resp.status == 201
+        data = resp.json()
+        assert data["artist"] == _TAGGED_ARTIST
+        assert data["title"] == _TAGGED_TITLE
+        # Clean up so the data dir stays tidy
+        api_context.delete(f"/api/songs/{data['id']}")
 
 
 # ---------------------------------------------------------------------------
@@ -199,8 +246,7 @@ class TestStems:
     ) -> None:
         """Processed stem with pitch=0 & tempo=1 is served from pre-built cache."""
         resp = api_context.get(
-            f"/api/songs/{ready_song_id}/stems/vocals/processed"
-            "?pitch=0.0&tempo=1.0"
+            f"/api/songs/{ready_song_id}/stems/vocals/processed?pitch=0.0&tempo=1.0"
         )
         assert resp.ok
         assert "audio/mpeg" in resp.headers["content-type"]

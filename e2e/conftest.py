@@ -25,12 +25,15 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import APIRequestContext, Playwright
 
 # Backend imports — safe to do here because storage/models have no
 # import-time side effects that touch the file system or OS environment.
 from backend.app.models import SongStatus, StemName
 from backend.app.storage import SongStorage
+from playwright.sync_api import APIRequestContext, Playwright
+
+_TAGGED_ARTIST = "Virginia Liston"
+_TAGGED_TITLE = "Evil Minded Blues"
 
 _REPO_ROOT = Path(__file__).parent.parent.resolve()
 
@@ -72,40 +75,84 @@ def e2e_data_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def ready_song_id(e2e_data_dir: Path) -> str:
-    """Pre-populate *e2e_data_dir* with a ready song; return its ID.
+    """Pre-populate *e2e_data_dir* with a ready song (no metadata); return its ID.
 
     The fixture creates:
-    - ``original/test_song.mp3``  – placeholder bytes
+    - ``original/test_song.mp3``  – placeholder bytes (no embedded tags)
     - ``stems/{vocals,bass,drums,other}.mp3``  – tiny silent placeholder files
     - processed stems for the identity transform (pitch=0, tempo=1.0),
       derived via ``SongStorage.processed_path()`` — the authoritative
       path logic lives in ``backend/app/storage.py``.
-    """
-    storage = SongStorage(e2e_data_dir)
 
-    # Create the Song record; use the auto-generated ID
-    song = storage.create_song("test_song.mp3")
+    No artist/title metadata is set so the display falls back to the
+    filename stem (``test_song``).
+    """
+    return _make_ready_song_in_storage(
+        SongStorage(e2e_data_dir),
+        "test_song.mp3",
+    )
+
+
+@pytest.fixture(scope="session")
+def tagged_mp3_bytes() -> bytes:
+    """Return bytes of the bundled sample MP3 that has embedded artist/title tags.
+
+    Uses ``e2e/media/Evil_Minded_Blues.mp3`` – a public-domain track that is
+    already checked into the repository and carries ``artist=Virginia Liston``
+    and ``title=Evil Minded Blues`` ID3 tags.  Reading a pre-existing file
+    avoids any run-time dependency on ``ffmpeg`` in the test environment.
+    """
+    sample = _REPO_ROOT / "e2e" / "media" / "Evil_Minded_Blues.mp3"
+    return sample.read_bytes()
+
+
+def _make_ready_song_in_storage(
+    storage: SongStorage,
+    filename: str,
+    *,
+    artist: str | None = None,
+    title: str | None = None,
+) -> str:
+    """Create a fully-ready song in *storage* with fake stems; return its ID."""
+    song = storage.create_song(filename)
     song_id = song.id
+
+    if artist is not None or title is not None:
+        storage.update_metadata(song_id, artist=artist, title=title)
 
     # original placeholder
     orig_dir = storage.original_dir(song_id)
     orig_dir.mkdir(parents=True, exist_ok=True)
-    (orig_dir / "test_song.mp3").write_bytes(b"\xff\xfb" + b"\x00" * 100)
+    (orig_dir / filename).write_bytes(b"\xff\xfb" + b"\x00" * 100)
 
     # stems
     for stem in StemName:
         _make_tiny_wav(storage.stem_path(song_id, stem))
 
     # processed stems for the identity transform (pitch=0.0, tempo=1.0)
-    # Path is computed by storage.processed_path() — single source of truth.
     for stem in StemName:
         proc_path = storage.processed_path(song_id, stem, pitch=0.0, tempo=1.0)
         _make_tiny_wav(proc_path)
 
-    # Mark the song as ready
     storage.update_status(song_id, SongStatus.READY, stems=list(StemName))
-
     return song_id
+
+
+@pytest.fixture(scope="session")
+def ready_song_with_metadata_id(e2e_data_dir: Path) -> str:
+    """Pre-populate *e2e_data_dir* with a ready song that has metadata set.
+
+    ``artist`` is set to :data:`_TAGGED_ARTIST` and ``title`` to
+    :data:`_TAGGED_TITLE` so that the metadata-display tests can assert
+    against known values without running the full upload+ffprobe pipeline.
+    """
+    storage = SongStorage(e2e_data_dir)
+    return _make_ready_song_in_storage(
+        storage,
+        "tagged_song.mp3",
+        artist=_TAGGED_ARTIST,
+        title=_TAGGED_TITLE,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +161,7 @@ def ready_song_id(e2e_data_dir: Path) -> str:
 
 
 @pytest.fixture(scope="session")
-def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str, None, None]:
+def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str]:
     """Start a uvicorn server for the test session; yield its base URL.
 
     ``ready_song_id`` is requested here (even though its value is unused in
@@ -157,7 +204,7 @@ def live_server(e2e_data_dir: Path, ready_song_id: str) -> Generator[str, None, 
         try:
             urllib.request.urlopen(f"{base_url}/api/health", timeout=1)
             break
-        except (urllib.error.URLError, OSError):
+        except urllib.error.URLError, OSError:
             time.sleep(0.3)
     else:
         proc.terminate()
@@ -185,9 +232,7 @@ def base_url(live_server: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def api_context(
-    playwright: Playwright, base_url: str
-) -> Generator[APIRequestContext, None, None]:
+def api_context(playwright: Playwright, base_url: str) -> Generator[APIRequestContext]:
     """Session-scoped Playwright APIRequestContext for headless API tests."""
     ctx = playwright.request.new_context(base_url=base_url)
     yield ctx
