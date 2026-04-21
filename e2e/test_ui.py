@@ -111,6 +111,24 @@ class TestPlayerSection:
         load_btn.click()
         return page
 
+    @pytest.fixture()
+    def loaded_player_with_delayed_stems(self, page: Page, ready_song_id: str) -> Page:
+        """Load a song while stem responses are delayed to keep UI in loading state."""
+        page.goto("/")
+
+        def _delay_stem_response(route: Route) -> None:
+            response = route.fetch()
+            time.sleep(2.0)
+            route.fulfill(response=response)
+
+        page.route("**/api/songs/*/stems/*", _delay_stem_response)
+
+        song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
+        load_btn = song_item.locator(".btn-primary")
+        expect(load_btn).to_be_visible()
+        load_btn.click()
+        return page
+
     def test_player_becomes_visible(self, loaded_player: Page) -> None:
         player = loaded_player.locator("#player-section")
         expect(player).not_to_have_class("card hidden")
@@ -152,18 +170,14 @@ class TestPlayerSection:
         expect(loaded_player.locator("#apply-btn")).to_be_visible()
         expect(loaded_player.locator("#reset-btn")).to_be_visible()
 
-    def test_stem_can_be_muted_while_loading(self, loaded_player: Page) -> None:
-        bass_mute_btn = loaded_player.locator('.stem-mute-btn[data-stem="bass"]')
+    def test_stem_can_be_muted_while_loading(
+        self, loaded_player_with_delayed_stems: Page
+    ) -> None:
+        bass_mute_btn = loaded_player_with_delayed_stems.locator(
+            '.stem-mute-btn[data-stem="bass"]'
+        )
         expect(bass_mute_btn).to_have_attribute("aria-label", "Mute bass")
-
-        def _delay_stem_response(route: Route) -> None:
-            response = route.fetch()
-            time.sleep(0.75)
-            route.fulfill(response=response)
-
-        loaded_player.route("**/api/songs/*/stems/*", _delay_stem_response)
-        loaded_player.locator("#apply-btn").click()
-        expect(loaded_player.locator("#play-pause-btn")).to_be_disabled()
+        expect(loaded_player_with_delayed_stems.locator("#play-pause-btn")).to_be_disabled()
 
         bass_mute_btn.click()
         expect(bass_mute_btn).to_have_attribute("aria-label", "Unmute bass")
