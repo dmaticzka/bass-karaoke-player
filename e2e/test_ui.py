@@ -8,8 +8,10 @@ fixture (from pytest-playwright) provides a real Chromium page whose
 
 from __future__ import annotations
 
+import time
+
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from e2e.conftest import _TAGGED_ARTIST, _TAGGED_TITLE
 
@@ -149,6 +151,22 @@ class TestPlayerSection:
         expect(loaded_player.locator("#tempo-slider")).to_be_visible()
         expect(loaded_player.locator("#apply-btn")).to_be_visible()
         expect(loaded_player.locator("#reset-btn")).to_be_visible()
+
+    def test_stem_can_be_muted_while_loading(self, loaded_player: Page) -> None:
+        bass_mute_btn = loaded_player.locator('.stem-mute-btn[data-stem="bass"]')
+        expect(bass_mute_btn).to_have_attribute("aria-label", "Mute bass")
+
+        def _delay_stem_response(route: Route) -> None:
+            response = route.fetch()
+            time.sleep(0.75)
+            route.fulfill(response=response)
+
+        loaded_player.route("**/api/songs/*/stems/*", _delay_stem_response)
+        loaded_player.locator("#apply-btn").click()
+        expect(loaded_player.locator("#play-pause-btn")).to_be_disabled()
+
+        bass_mute_btn.click()
+        expect(bass_mute_btn).to_have_attribute("aria-label", "Unmute bass")
 
 
 # ---------------------------------------------------------------------------
