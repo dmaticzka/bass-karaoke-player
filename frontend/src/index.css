@@ -437,8 +437,6 @@ a:hover { text-decoration: underline; }
 }
 .stem-vol-output { min-width: 2.6rem; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-.stems-stack.loading { pointer-events: none; }
-
 @media (max-width: 599px) {
   .stem-card {
     width: calc(100% - 1.25rem);
