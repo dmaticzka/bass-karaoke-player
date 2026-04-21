@@ -86,4 +86,5 @@ jobs:
           tags: ${{ steps.meta-gpu.outputs.tags }}
           labels: ${{ steps.meta-gpu.outputs.labels }}
           cache-from: type=gha
+          cache-to: type=gha,mode=max
           target: runtime-gpu

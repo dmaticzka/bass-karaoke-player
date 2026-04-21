@@ -76,7 +76,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ffmpeg \
         libsndfile1
 
-# Copy the CPU virtual environment from the builder stage
+# Copy the CPU virtual environment from the builder stage.
+# Ownership is set below via `chown -R player:player /app`, which covers /app/.venv.
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy application source
