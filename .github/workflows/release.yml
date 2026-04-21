@@ -83,7 +83,7 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (CPU – default)
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -91,4 +91,28 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+          cache-to: type=gha,mode=max
           target: runtime
+
+      - name: Extract metadata for Docker (GPU variant)
+        id: meta-gpu
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=-gpu,onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push Docker image (GPU – opt-in)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta-gpu.outputs.tags }}
+          labels: ${{ steps.meta-gpu.outputs.labels }}
+          cache-from: type=gha
+          target: runtime-gpu

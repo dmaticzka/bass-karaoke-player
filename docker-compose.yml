@@ -1,6 +1,9 @@
 services:
   bass-karaoke-player:
-    # Use the pre-built image from GitHub Container Registry (ghcr.io).
+    # Use the pre-built CPU image from GitHub Container Registry (ghcr.io).
+    # This is the default, smaller image that runs demucs on CPU.
+    # For CUDA-accelerated audio decoding, use the GPU variant instead:
+    #   image: ghcr.io/dmaticzka/bass-karaoke-player:latest-gpu
     # To build locally instead, run: docker compose up --build
     image: ghcr.io/dmaticzka/bass-karaoke-player:latest
     build:

@@ -20,7 +20,8 @@ COPY frontend/ .
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 1: builder – install Python dependencies into a virtual environment
+# Stage 1: builder – install CPU-only Python dependencies into a venv.
+# This is the default (smaller) build used by the standard runtime image.
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim AS builder
 
@@ -39,14 +40,24 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Copy locked dependency manifests first (Docker cache layer)
 COPY pyproject.toml uv.lock ./
 
-# Install production dependencies (including gpu extras) into /app/.venv.
+# Install production dependencies (CPU-only) into /app/.venv.
 # --frozen: use uv.lock as-is; --no-dev: skip dev group; --no-install-project:
 # skip installing the app itself (it runs from source via PYTHONPATH).
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+
+# ---------------------------------------------------------------------------
+# Stage 1b: builder-gpu – extend the CPU venv with GPU extras.
+# Adds torchcodec + nvidia-npp on top of the already-built CPU venv so that
+# the GPU image can accelerate audio decoding with CUDA.
+# ---------------------------------------------------------------------------
+FROM builder AS builder-gpu
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra gpu --no-install-project
 
 # ---------------------------------------------------------------------------
-# Stage 2: runtime
+# Stage 2: runtime – CPU image (default, smaller)
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim AS runtime
 
@@ -65,15 +76,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ffmpeg \
         libsndfile1
 
-# Copy the virtual environment from the builder stage
+# Copy the CPU virtual environment from the builder stage
 COPY --from=builder /app/.venv /app/.venv
-
-# Register the NVIDIA CUDA library directory with the dynamic linker so that
-# torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the
-# nvidia-npp Python package.
-RUN /app/.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
-        > /etc/ld.so.conf.d/nvidia-cu13.conf \
-    && ldconfig
 
 # Copy application source
 WORKDIR /app
@@ -103,6 +107,28 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
 
 CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---------------------------------------------------------------------------
+# Stage 2b: runtime-gpu – GPU-accelerated image (larger, opt-in)
+# Inherits everything from runtime and swaps in the GPU venv that includes
+# torchcodec + nvidia-npp for CUDA-accelerated audio decoding.
+# ---------------------------------------------------------------------------
+FROM runtime AS runtime-gpu
+
+USER root
+
+# Replace the CPU venv with the GPU venv built in builder-gpu
+COPY --from=builder-gpu /app/.venv /app/.venv
+
+# Register the NVIDIA CUDA library directory with the dynamic linker so that
+# torchcodec (CUDA-enabled wheel) can resolve libnppicc.so.13 provided by the
+# nvidia-npp Python package.
+RUN /app/.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'] + '/nvidia/cu13/lib')" \
+        > /etc/ld.so.conf.d/nvidia-cu13.conf \
+    && ldconfig \
+    && chown -R player:player /app/.venv
+
+USER player
 
 # ---------------------------------------------------------------------------
 # Stage 3: smoketest – start the server and verify the health endpoint.

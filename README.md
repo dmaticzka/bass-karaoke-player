@@ -19,7 +19,14 @@ A web-based music player that lets you split songs into individual stems (voice,
 
 ### With Docker (recommended)
 
-Pull the pre-built image from the GitHub Container Registry and start immediately — no clone required:
+Two image variants are published to the GitHub Container Registry:
+
+| Tag | Description |
+|-----|-------------|
+| `latest` (default) | CPU image — smaller, works everywhere, runs demucs on CPU |
+| `latest-gpu` | GPU image — adds CUDA-accelerated audio decoding via `torchcodec` + `nvidia-npp`; requires an NVIDIA GPU and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) |
+
+Pull the pre-built **CPU image** from the GitHub Container Registry and start immediately — no clone required:
 
 ```bash
 docker run -d \
@@ -32,7 +39,21 @@ docker run -d \
 open http://localhost:8000
 ```
 
-Or clone the repo and use `docker compose`, which pulls the published image by default:
+Or use the **GPU image** on a machine with an NVIDIA GPU:
+
+```bash
+docker run -d \
+  --gpus all \
+  -p 8000:8000 \
+  -v karaoke_data:/data \
+  --name bass-karaoke-player \
+  ghcr.io/dmaticzka/bass-karaoke-player:latest-gpu
+
+# Open in your browser
+open http://localhost:8000
+```
+
+Or clone the repo and use `docker compose`, which pulls the published CPU image by default:
 
 ```bash
 git clone https://github.com/dmaticzka/bass-karaoke-player.git
@@ -167,10 +188,10 @@ bass-karaoke-player/
 | Workflow | Trigger | Steps |
 |----------|---------|-------|
 | `ci.yml` | Push / PR | Lint (ruff, mypy) → Test → Docker build |
-| `release.yml` | Tag `v*.*.*` | Validate → Test → GitHub Release → Push Docker image to `ghcr.io` |
-| `auto-release.yml` | Push to `main` | Auto-bump version tag → GitHub Release → Push Docker image to `ghcr.io` |
+| `release.yml` | Tag `v*.*.*` | Validate → Test → GitHub Release → Push CPU + GPU Docker images to `ghcr.io` |
+| `auto-release.yml` | Push to `main` | Auto-bump version tag → GitHub Release → Push CPU + GPU Docker images to `ghcr.io` |
 
-The Docker image is published to `ghcr.io/dmaticzka/bass-karaoke-player` and tagged as `latest`, plus the full, minor, and major semver versions.
+The Docker images are published to `ghcr.io/dmaticzka/bass-karaoke-player`. The default CPU image is tagged as `latest` (plus full, minor, and major semver versions); the GPU image carries a `-gpu` suffix on all tags.
 See [GHCR_SETUP.md](GHCR_SETUP.md) for the one-time GitHub settings you need to enable.
 
 ## License

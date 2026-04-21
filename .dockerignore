@@ -1,0 +1,54 @@
+# =============================================================================
+# Bass Karaoke Player – .dockerignore
+# Excludes files that are not needed inside the Docker image.
+# Keeping the build context lean speeds up `docker build` and avoids
+# accidentally baking development/CI artefacts into the image.
+# =============================================================================
+
+# Version-control metadata
+.git/
+.gitignore
+
+# Local virtual environments
+.venv/
+
+# Runtime data (never belongs in the image; mounted as a volume instead)
+data/
+
+# Test suites and coverage reports
+backend/tests/
+e2e/
+.pytest_cache/
+coverage.xml
+.coverage
+htmlcov/
+
+# Type-checker and linter caches
+.mypy_cache/
+.ruff_cache/
+
+# Python byte-code and packaging artefacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Node artefacts (the frontend-builder stage runs `npm ci` inside the image)
+frontend/node_modules/
+# The local dist/ folder is rebuilt inside the image; exclude to avoid stale
+# local builds from being sent as build context
+frontend/dist/
+
+# Editor / IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS metadata
+.DS_Store
+
+# CI-only docs and setup guides
+GHCR_SETUP.md
+CHANGELOG.md

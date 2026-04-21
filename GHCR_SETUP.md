@@ -11,14 +11,21 @@ The CI/CD workflows in this repository are already configured to build and push 
 
 Both workflows use `GITHUB_TOKEN` — no additional secrets are required.
 
-The image is tagged automatically:
+The image is tagged automatically. Two variants are published on every release:
 
-| Tag | Example | When |
-|---|---|---|
-| `latest` | `ghcr.io/dmaticzka/bass-karaoke-player:latest` | Every publish |
-| Full semver | `ghcr.io/dmaticzka/bass-karaoke-player:1.2.3` | Every publish |
-| Minor | `ghcr.io/dmaticzka/bass-karaoke-player:1.2` | Every publish |
-| Major | `ghcr.io/dmaticzka/bass-karaoke-player:1` | Every publish |
+| Tag | Variant | Example |
+|-----|---------|---------|
+| `latest` | CPU (default, smaller) | `ghcr.io/dmaticzka/bass-karaoke-player:latest` |
+| Full semver | CPU | `ghcr.io/dmaticzka/bass-karaoke-player:1.2.3` |
+| Minor | CPU | `ghcr.io/dmaticzka/bass-karaoke-player:1.2` |
+| Major | CPU | `ghcr.io/dmaticzka/bass-karaoke-player:1` |
+| `latest-gpu` | GPU (opt-in, larger) | `ghcr.io/dmaticzka/bass-karaoke-player:latest-gpu` |
+| Full semver + `-gpu` | GPU | `ghcr.io/dmaticzka/bass-karaoke-player:1.2.3-gpu` |
+| Minor + `-gpu` | GPU | `ghcr.io/dmaticzka/bass-karaoke-player:1.2-gpu` |
+| Major + `-gpu` | GPU | `ghcr.io/dmaticzka/bass-karaoke-player:1-gpu` |
+
+The **CPU image** (`latest`) is the default and works on any machine.
+The **GPU image** (`latest-gpu`) adds CUDA-accelerated audio decoding via `torchcodec` and `nvidia-npp`, and requires an NVIDIA GPU with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
 
 ## Required GitHub configuration
 
@@ -60,10 +67,16 @@ After your next push to `main` (or after pushing a `v*.*.*` tag), check that the
 2. Open the latest **Auto Release** (or **Release**) run.
 3. The **Build & Push Docker Image** job should finish with a green checkmark.
 
-You can then pull the image locally:
+You can then pull the CPU image locally:
 
 ```bash
 docker pull ghcr.io/dmaticzka/bass-karaoke-player:latest
+```
+
+Or the GPU image:
+
+```bash
+docker pull ghcr.io/dmaticzka/bass-karaoke-player:latest-gpu
 ```
 
 Or start the application directly without cloning the repository:
