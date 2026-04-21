@@ -991,6 +991,27 @@ class TestListVersions:
         assert non_default[0]["tempo_ratio"] == 1.5
         assert non_default[0]["is_default"] is False
 
+    def test_ignores_duplicate_default_cached_version(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """A cached 0/1 pair must not appear as a second non-default entry."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        for stem in StemName:
+            path = storage.processed_path("ver-song", stem, 0.0, 1.0)
+            path.write_bytes(b"\x00" * 10)
+
+        resp = client.get("/api/songs/ver-song/versions")
+        assert resp.status_code == 200
+        versions = resp.json()["versions"]
+        assert len(versions) == 1
+        assert versions[0]["pitch_semitones"] == 0.0
+        assert versions[0]["tempo_ratio"] == 1.0
+        assert versions[0]["is_default"] is True
+
     def test_song_not_found_returns_404(self, client: TestClient) -> None:
         resp = client.get("/api/songs/does-not-exist/versions")
         assert resp.status_code == 404

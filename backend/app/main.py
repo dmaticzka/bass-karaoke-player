@@ -520,6 +520,8 @@ def _song_router() -> APIRouter:
             )
         ]
         for pitch, tempo in pairs:
+            if pitch == 0.0 and tempo == 1.0:
+                continue
             vstatus = storage.version_status(song_id, pitch, tempo)
             versions.append(
                 Version(
