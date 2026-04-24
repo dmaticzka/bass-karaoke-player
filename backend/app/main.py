@@ -404,6 +404,18 @@ def _song_router() -> APIRouter:
         if not storage.delete_song(song_id):
             raise HTTPException(status_code=404, detail="Song not found.")
 
+    @router.post(
+        "/songs/{song_id}/touch",
+        response_model=Song,
+        responses={404: {"model": ErrorResponse}},
+    )
+    async def touch_song(song_id: str) -> Song:
+        """Update last_used_at for a song to the current time."""
+        song = storage.touch_song(song_id)
+        if song is None:
+            raise HTTPException(status_code=404, detail="Song not found.")
+        return song
+
     @router.get(
         "/songs/{song_id}/stems/{stem_name}",
         responses={

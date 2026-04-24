@@ -85,6 +85,19 @@ class TestSongStorage:
     def test_delete_nonexistent_song(self, storage: SongStorage) -> None:
         assert storage.delete_song("ghost") is False
 
+    def test_touch_song_sets_last_used_at(self, storage: SongStorage) -> None:
+        song = storage.create_song("track.mp3")
+        assert song.last_used_at is None
+        touched = storage.touch_song(song.id)
+        assert touched is not None
+        assert touched.last_used_at is not None
+        reloaded = storage.load_song(song.id)
+        assert reloaded is not None
+        assert reloaded.last_used_at == touched.last_used_at
+
+    def test_touch_nonexistent_song_returns_none(self, storage: SongStorage) -> None:
+        assert storage.touch_song("ghost") is None
+
     def test_stem_path(self, storage: SongStorage) -> None:
         path = storage.stem_path("song123", StemName.VOCALS)
         assert path.name == "vocals.mp3"

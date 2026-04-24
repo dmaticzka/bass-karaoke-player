@@ -21,6 +21,14 @@ function sortSongs(songs: Song[], order: SongSortOrder): Song[] {
   const sorted = [...songs];
   if (order === "alphabetical") {
     sorted.sort((a, b) => getSongLabel(a).localeCompare(getSongLabel(b)));
+  } else if (order === "title") {
+    sorted.sort((a, b) => getSongTitle(a).localeCompare(getSongTitle(b)));
+  } else if (order === "last-used") {
+    sorted.sort((a, b) => {
+      const ta = a.last_used_at ? new Date(a.last_used_at).getTime() : Number.NEGATIVE_INFINITY;
+      const tb = b.last_used_at ? new Date(b.last_used_at).getTime() : Number.NEGATIVE_INFINITY;
+      return tb - ta; // most recently used first
+    });
   } else {
     sorted.sort((a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : Number.NEGATIVE_INFINITY;
@@ -74,7 +82,9 @@ export function SongList({ onLoadSong }: Props) {
           title="Sort order"
         >
           <option value="recent">Recently Added</option>
-          <option value="alphabetical">Alphabetical</option>
+          <option value="last-used">Last Used</option>
+          <option value="alphabetical">Alphabetical (Artist + Title)</option>
+          <option value="title">Alphabetical (Title only)</option>
         </select>
       </h3>
 

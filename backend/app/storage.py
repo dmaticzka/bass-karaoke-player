@@ -304,6 +304,15 @@ class SongStorage:
         self.save_song(song)
         return song
 
+    def touch_song(self, song_id: str) -> Song | None:
+        """Update last_used_at for a song to the current UTC time."""
+        song = self.load_song(song_id)
+        if song is None:
+            return None
+        song.last_used_at = datetime.now(UTC)
+        self.save_song(song)
+        return song
+
     def update_metadata(
         self, song_id: str, artist: str | None = None, title: str | None = None
     ) -> Song | None:

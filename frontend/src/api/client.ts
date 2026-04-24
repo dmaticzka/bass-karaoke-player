@@ -47,6 +47,8 @@ export const api = {
 
   deleteSong: (id: string) => del(`/songs/${id}`),
 
+  touchSong: (id: string) => post<Song>(`/songs/${id}/touch`, {}),
+
   uploadSong: (
     file: File,
     onProgress: (pct: number) => void,

@@ -14,6 +14,7 @@ export default function App() {
   const setSongs = usePlayerStore((s) => s.setSongs);
   const setServerConfig = usePlayerStore((s) => s.setServerConfig);
   const setActiveSong = usePlayerStore((s) => s.setActiveSong);
+  const updateSong = usePlayerStore((s) => s.updateSong);
   const setActiveTab = usePlayerStore((s) => s.setActiveTab);
   const activeTab = usePlayerStore((s) => s.activeTab);
   const activeSong = usePlayerStore((s) => s.activeSong);
@@ -43,6 +44,11 @@ export default function App() {
     setActiveSong(song);
     setActiveTab("player");
     setLibraryCollapsed(true);
+    // Record last-used timestamp; update store on success so sort order refreshes
+    void api.touchSong(song.id).then((updated) => {
+      updateSong(updated);
+      setActiveSong(updated);
+    });
   };
 
   const handleTabChange = (tab: AppTab) => {

@@ -70,6 +70,7 @@ class Song(BaseModel):
     stems: list[StemName] = Field(default_factory=list)
     error_message: str | None = None
     created_at: datetime | None = None
+    last_used_at: datetime | None = None
 
 
 class SongListResponse(BaseModel):

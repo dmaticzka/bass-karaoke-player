@@ -3,7 +3,7 @@ import type { AppTab, EqBand, ServerConfig, Song, Version } from "../types";
 import { DEFAULT_EQ_BANDS } from "../types";
 
 export type EqMode = "global" | "per-stem";
-export type SongSortOrder = "alphabetical" | "recent";
+export type SongSortOrder = "alphabetical" | "recent" | "title" | "last-used";
 
 interface PlayerState {
   // Song list
@@ -113,7 +113,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   activeTab: "library",
   uploadProgress: null,
   uploadStatus: "",
-  songSortOrder: "recent",
+  songSortOrder: "last-used",
 
   setSongs: (songs) => set({ songs }),
   updateSong: (song) =>
