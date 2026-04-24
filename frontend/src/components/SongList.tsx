@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { usePlayerStore } from "../store/playerStore";
 import type { SongSortOrder } from "../store/playerStore";
 import { api } from "../api/client";
@@ -22,8 +23,8 @@ function sortSongs(songs: Song[], order: SongSortOrder): Song[] {
     sorted.sort((a, b) => getSongLabel(a).localeCompare(getSongLabel(b)));
   } else {
     sorted.sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      const ta = a.created_at ? new Date(a.created_at).getTime() : Number.NEGATIVE_INFINITY;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : Number.NEGATIVE_INFINITY;
       return tb - ta; // most recent first
     });
   }
@@ -49,7 +50,7 @@ export function SongList({ onLoadSong }: Props) {
     setSongs(data.songs);
   };
 
-  const sortedSongs = sortSongs(songs, songSortOrder);
+  const sortedSongs = useMemo(() => sortSongs(songs, songSortOrder), [songs, songSortOrder]);
 
   return (
     <section id="songs-section" className="sub-section">
