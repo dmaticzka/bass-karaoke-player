@@ -48,6 +48,8 @@ export default function App() {
     void api.touchSong(song.id).then((updated) => {
       updateSong(updated);
       setActiveSong(updated);
+    }).catch(() => {
+      // Non-fatal: sort order may not refresh if touch fails
     });
   };
 

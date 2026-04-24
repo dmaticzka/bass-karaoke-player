@@ -24,17 +24,21 @@ function sortSongs(songs: Song[], order: SongSortOrder): Song[] {
   } else if (order === "title") {
     sorted.sort((a, b) => getSongTitle(a).localeCompare(getSongTitle(b)));
   } else if (order === "last-used") {
-    sorted.sort((a, b) => {
-      const ta = a.last_used_at ? new Date(a.last_used_at).getTime() : Number.NEGATIVE_INFINITY;
-      const tb = b.last_used_at ? new Date(b.last_used_at).getTime() : Number.NEGATIVE_INFINITY;
-      return tb - ta; // most recently used first
-    });
+    const ts = new Map(
+      songs.map((s) => [
+        s.id,
+        s.last_used_at ? new Date(s.last_used_at).getTime() : Number.NEGATIVE_INFINITY,
+      ]),
+    );
+    sorted.sort((a, b) => (ts.get(b.id) ?? Number.NEGATIVE_INFINITY) - (ts.get(a.id) ?? Number.NEGATIVE_INFINITY));
   } else {
-    sorted.sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : Number.NEGATIVE_INFINITY;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : Number.NEGATIVE_INFINITY;
-      return tb - ta; // most recent first
-    });
+    const ts = new Map(
+      songs.map((s) => [
+        s.id,
+        s.created_at ? new Date(s.created_at).getTime() : Number.NEGATIVE_INFINITY,
+      ]),
+    );
+    sorted.sort((a, b) => (ts.get(b.id) ?? Number.NEGATIVE_INFINITY) - (ts.get(a.id) ?? Number.NEGATIVE_INFINITY));
   }
   return sorted;
 }
