@@ -113,7 +113,7 @@ class TestUpload:
         assert resp.status == 201
         data = resp.json()
         assert data["filename"] == "e2e_upload.wav"
-        assert data["status"] == "splitting"
+        assert data["status"] == "queued"
         # Cleanup: delete the song so the data dir stays tidy
         api_context.delete(f"/api/songs/{data['id']}")
 
@@ -256,7 +256,7 @@ class TestStems:
         api_context: APIRequestContext,
         silence_wav_bytes: bytes,
     ) -> None:
-        # Upload creates a song in "splitting" state
+        # Upload creates a song in "queued" state
         upload = api_context.post(
             "/api/songs",
             multipart={
