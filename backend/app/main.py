@@ -281,13 +281,8 @@ async def _enqueue_split_task(song_id: str) -> None:
     (default: 1), which prevents simultaneous demucs invocations from
     exhausting CPU and memory on the host.
     """
-    queue_depth = MAX_SPLIT_WORKERS - split_semaphore._value  # noqa: SLF001
-    if queue_depth > 0:
-        logger.info(
-            "Stem splitting queued for %s (%d job(s) already running)",
-            song_id,
-            queue_depth,
-        )
+    if split_semaphore.locked():
+        logger.info("Stem splitting queued for %s (all worker slots busy)", song_id)
     async with split_semaphore:
         storage.update_status(song_id, SongStatus.SPLITTING)
         await asyncio.to_thread(_split_song_task, song_id)

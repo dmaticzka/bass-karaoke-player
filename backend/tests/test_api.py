@@ -506,9 +506,8 @@ class TestLifespan:
         with TestClient(app) as client:
             client.get("/api/health")
         assert isinstance(main_module.split_semaphore, asyncio.Semaphore)
-        # The semaphore capacity must reflect MAX_SPLIT_WORKERS.
-        # asyncio.Semaphore stores the initial count as _value when idle.
-        assert main_module.split_semaphore._value == 3  # noqa: SLF001
+        # The semaphore must not be locked (all 3 slots free after health check).
+        assert not main_module.split_semaphore.locked()
 
 
 # ---------------------------------------------------------------------------
@@ -1543,8 +1542,8 @@ class TestSplitQueue:
         with patch("backend.app.main._split_song_task"):
             asyncio.run(_enqueue_split_task(song.id))
 
-        # Semaphore must have been released (value back to 1).
-        assert semaphore._value == 1  # noqa: SLF001
+        # Semaphore must have been released (no longer locked).
+        assert not semaphore.locked()
 
     def test_max_split_workers_env_is_respected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -1557,4 +1556,5 @@ class TestSplitQueue:
         app = create_app()
         with TestClient(app) as c:
             c.get("/api/health")
-        assert main_module.split_semaphore._value == 2  # noqa: SLF001
+        # A fresh semaphore with capacity 2 must not be locked.
+        assert not main_module.split_semaphore.locked()
