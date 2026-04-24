@@ -298,7 +298,9 @@ class SongStorage:
         return str(uuid.uuid4())
 
     def create_song(self, filename: str) -> Song:
-        song = Song(id=self.new_song_id(), filename=filename)
+        song = Song(
+            id=self.new_song_id(), filename=filename, created_at=datetime.now(UTC)
+        )
         self.save_song(song)
         return song
 

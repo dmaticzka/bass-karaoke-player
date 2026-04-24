@@ -1,4 +1,5 @@
 import { usePlayerStore } from "../store/playerStore";
+import type { SongSortOrder } from "../store/playerStore";
 import { api } from "../api/client";
 import type { Song } from "../types";
 import { getSongArtist, getSongLabel, getSongTitle } from "../utils/songDisplay";
@@ -15,10 +16,26 @@ function statusLabel(status: string): string {
   );
 }
 
+function sortSongs(songs: Song[], order: SongSortOrder): Song[] {
+  const sorted = [...songs];
+  if (order === "alphabetical") {
+    sorted.sort((a, b) => getSongLabel(a).localeCompare(getSongLabel(b)));
+  } else {
+    sorted.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta; // most recent first
+    });
+  }
+  return sorted;
+}
+
 export function SongList({ onLoadSong }: Props) {
   const songs = usePlayerStore((s) => s.songs);
   const activeSong = usePlayerStore((s) => s.activeSong);
   const setSongs = usePlayerStore((s) => s.setSongs);
+  const songSortOrder = usePlayerStore((s) => s.songSortOrder);
+  const setSongSortOrder = usePlayerStore((s) => s.setSongSortOrder);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this song and all its stems?")) return;
@@ -31,6 +48,8 @@ export function SongList({ onLoadSong }: Props) {
     const data = await api.getSongs();
     setSongs(data.songs);
   };
+
+  const sortedSongs = sortSongs(songs, songSortOrder);
 
   return (
     <section id="songs-section" className="sub-section">
@@ -45,13 +64,24 @@ export function SongList({ onLoadSong }: Props) {
         >
           ↻
         </button>
+        <select
+          id="sort-order-select"
+          className="sort-order-select"
+          value={songSortOrder}
+          onChange={(e) => setSongSortOrder(e.target.value as SongSortOrder)}
+          aria-label="Sort order"
+          title="Sort order"
+        >
+          <option value="recent">Recently Added</option>
+          <option value="alphabetical">Alphabetical</option>
+        </select>
       </h3>
 
       <ul className="song-list" id="song-list">
-        {songs.length === 0 ? (
+        {sortedSongs.length === 0 ? (
           <li className="empty-msg">No songs uploaded yet.</li>
         ) : (
-          songs.map((song) => (
+          sortedSongs.map((song) => (
             <li
               key={song.id}
               className={`song-item${activeSong?.id === song.id ? " active" : ""}`}
