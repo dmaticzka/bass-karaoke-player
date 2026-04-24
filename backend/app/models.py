@@ -24,6 +24,7 @@ class SongStatus(StrEnum):
     """Processing status of an uploaded song."""
 
     UPLOADED = "uploaded"
+    QUEUED = "queued"
     SPLITTING = "splitting"
     READY = "ready"
     ERROR = "error"

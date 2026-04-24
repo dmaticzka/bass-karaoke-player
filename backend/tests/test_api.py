@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -36,6 +37,7 @@ def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     main_module.storage = SongStorage(data_dir)
     main_module.splitter = MagicMock()
     main_module.processor = MagicMock()
+    main_module.split_semaphore = asyncio.Semaphore(main_module.MAX_SPLIT_WORKERS)
 
     app = create_app()
     return TestClient(app, raise_server_exceptions=True)
@@ -59,6 +61,8 @@ class TestHealth:
         assert "max_versions_global" in data
         assert "max_versions_per_song" not in data
         assert data["max_versions_global"] > 0
+        assert "max_split_workers" in data
+        assert data["max_split_workers"] >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +88,7 @@ class TestSongList:
 
 class TestSongUpload:
     def test_upload_valid_mp3(self, client: TestClient) -> None:
-        with patch("backend.app.main._split_song_task"):
+        with patch("backend.app.main._enqueue_split_task"):
             resp = client.post(
                 "/api/songs",
                 files={"file": ("song.mp3", io.BytesIO(b"\x00" * 100), "audio/mpeg")},
@@ -92,7 +96,7 @@ class TestSongUpload:
         assert resp.status_code == 201
         data = resp.json()
         assert data["filename"] == "song.mp3"
-        assert data["status"] == SongStatus.SPLITTING.value
+        assert data["status"] == SongStatus.QUEUED.value
 
     def test_upload_invalid_extension(self, client: TestClient) -> None:
         resp = client.post(
@@ -111,7 +115,7 @@ class TestSongUpload:
         assert resp.status_code in (400, 422)
 
     def test_upload_wav(self, client: TestClient) -> None:
-        with patch("backend.app.main._split_song_task"):
+        with patch("backend.app.main._enqueue_split_task"):
             resp = client.post(
                 "/api/songs",
                 files={"file": ("track.wav", io.BytesIO(b"\x00" * 44), "audio/wav")},
@@ -121,7 +125,7 @@ class TestSongUpload:
 
     def test_upload_reads_artist_and_title_metadata(self, client: TestClient) -> None:
         with (
-            patch("backend.app.main._split_song_task"),
+            patch("backend.app.main._enqueue_split_task"),
             patch(
                 "backend.app.main._read_song_metadata",
                 return_value=("Red Hot Chili Peppers", "Californication"),
@@ -489,6 +493,22 @@ class TestLifespan:
         with TestClient(app) as client:
             client.get("/api/health")
         assert isinstance(main_module.splitter, StemSplitter)
+
+    def test_lifespan_creates_split_semaphore(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lifespan must initialise an asyncio.Semaphore for split concurrency."""
+        import backend.app.main as main_module
+
+        monkeypatch.setattr(main_module, "DATA_DIR", tmp_path / "data")
+        monkeypatch.setattr(main_module, "MAX_SPLIT_WORKERS", 3)
+        app = create_app()
+        with TestClient(app) as client:
+            client.get("/api/health")
+        assert isinstance(main_module.split_semaphore, asyncio.Semaphore)
+        # The semaphore capacity must reflect MAX_SPLIT_WORKERS.
+        # asyncio.Semaphore stores the initial count as _value when idle.
+        assert main_module.split_semaphore._value == 3  # noqa: SLF001
 
 
 # ---------------------------------------------------------------------------
@@ -1440,3 +1460,101 @@ class TestGetProcessedStemTouchesVersion:
         meta = storage.read_version_meta("tv-song")
         assert tag in meta
         assert "accessed_at" in meta[tag]
+
+
+# ---------------------------------------------------------------------------
+# Split-worker queue (_enqueue_split_task)
+# ---------------------------------------------------------------------------
+
+
+class TestSplitQueue:
+    """Tests for the semaphore-based split-worker queue."""
+
+    def test_upload_sets_queued_status(self, client: TestClient) -> None:
+        """Uploaded song must immediately have status 'queued'."""
+        with patch("backend.app.main._enqueue_split_task"):
+            resp = client.post(
+                "/api/songs",
+                files={"file": ("q.mp3", io.BytesIO(b"\x00" * 100), "audio/mpeg")},
+            )
+        assert resp.status_code == 201
+        assert resp.json()["status"] == SongStatus.QUEUED.value
+
+    def test_queued_song_returns_409_on_stem_request(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """A song in 'queued' state must return 409 when stems are requested."""
+        import backend.app.main as main_module
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("waiting.mp3")
+        storage.update_status(song.id, SongStatus.QUEUED)
+        main_module.storage = storage
+        resp = client.get(f"/api/songs/{song.id}/stems/vocals")
+        assert resp.status_code == 409
+        assert "queued" in resp.json()["detail"].lower()
+
+    def test_enqueue_acquires_semaphore_and_transitions_to_splitting(
+        self, data_dir: Path
+    ) -> None:
+        """_enqueue_split_task must set status SPLITTING before calling _split_song_task."""
+        import backend.app.main as main_module
+        from backend.app.main import _enqueue_split_task
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("s.mp3")
+        storage.update_status(song.id, SongStatus.QUEUED)
+        upload_path = storage.upload_path(song.id, "s.mp3")
+        upload_path.write_bytes(b"\x00" * 100)
+
+        main_module.storage = storage
+        main_module.splitter = MagicMock()
+        main_module.split_semaphore = asyncio.Semaphore(1)
+
+        observed_status: list[SongStatus] = []
+
+        def capture_status(song_id: str) -> None:
+            # Called from within the semaphore; status must already be SPLITTING.
+            s = storage.load_song(song_id)
+            if s:
+                observed_status.append(s.status)
+
+        with patch("backend.app.main._split_song_task", side_effect=capture_status):
+            asyncio.run(_enqueue_split_task(song.id))
+
+        assert SongStatus.SPLITTING in observed_status
+
+    def test_enqueue_releases_semaphore_after_completion(self, data_dir: Path) -> None:
+        """Semaphore slot must be released after _split_song_task completes."""
+        import backend.app.main as main_module
+        from backend.app.main import _enqueue_split_task
+
+        storage = SongStorage(data_dir)
+        song = storage.create_song("r.mp3")
+        storage.update_status(song.id, SongStatus.QUEUED)
+        upload_path = storage.upload_path(song.id, "r.mp3")
+        upload_path.write_bytes(b"\x00" * 100)
+
+        semaphore = asyncio.Semaphore(1)
+        main_module.storage = storage
+        main_module.splitter = MagicMock()
+        main_module.split_semaphore = semaphore
+
+        with patch("backend.app.main._split_song_task"):
+            asyncio.run(_enqueue_split_task(song.id))
+
+        # Semaphore must have been released (value back to 1).
+        assert semaphore._value == 1  # noqa: SLF001
+
+    def test_max_split_workers_env_is_respected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lifespan must create a semaphore with capacity equal to MAX_SPLIT_WORKERS."""
+        import backend.app.main as main_module
+
+        monkeypatch.setattr(main_module, "DATA_DIR", tmp_path / "data")
+        monkeypatch.setattr(main_module, "MAX_SPLIT_WORKERS", 2)
+        app = create_app()
+        with TestClient(app) as c:
+            c.get("/api/health")
+        assert main_module.split_semaphore._value == 2  # noqa: SLF001

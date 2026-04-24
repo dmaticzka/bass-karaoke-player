@@ -88,7 +88,8 @@ The following environment variables control the application's behaviour:
 |---|---|---|
 | `DATA_DIR` | `data` | Directory used to store uploaded songs, stems, and processed files |
 | `FRONTEND_DIR` | `frontend` | Directory from which the frontend static files are served |
-| `DEMUCS_JOBS` | `4` | Number of parallel CPU jobs used by demucs for stem splitting |
+| `MAX_SPLIT_WORKERS` | `1` | Maximum number of demucs stem-splitting jobs that run concurrently. Uploaded songs that cannot start immediately are queued (status `queued`) and processed in order as workers become free. Increase only if the host has enough CPU cores and RAM for parallel demucs runs. |
+| `DEMUCS_JOBS` | `4` | Number of parallel CPU jobs used *within* a single demucs run |
 | `TORCH_HOME` | *(PyTorch default)* | Cache directory for PyTorch / demucs model weights |
 
 ## API Reference

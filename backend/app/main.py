@@ -50,6 +50,13 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
 MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
+# Maximum number of stem-splitting jobs that may run concurrently.
+# Additional uploads are queued (status "queued") until a slot is free.
+# Demucs is very CPU- and memory-intensive; the default of 1 prevents the
+# machine from being overwhelmed when multiple songs are uploaded at once.
+# Increase this value only if the host has enough cores and RAM to run
+# several demucs instances in parallel.
+MAX_SPLIT_WORKERS = int(os.getenv("MAX_SPLIT_WORKERS", "1"))
 
 # ---------------------------------------------------------------------------
 # Shared state
@@ -58,14 +65,20 @@ MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
 storage: SongStorage
 splitter: StemSplitter
 processor: RubberbandProcessor
+# Semaphore that limits the number of concurrent stem-splitting jobs.
+# Initialised here with the module-level default so that test fixtures that
+# bypass the lifespan still get a working semaphore.  The lifespan recreates
+# it to pick up any runtime value of MAX_SPLIT_WORKERS.
+split_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_SPLIT_WORKERS)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    global storage, splitter, processor  # noqa: PLW0603
+    global storage, splitter, processor, split_semaphore  # noqa: PLW0603
     storage = SongStorage(DATA_DIR)
     splitter = StemSplitter()
     processor = RubberbandProcessor()
+    split_semaphore = asyncio.Semaphore(MAX_SPLIT_WORKERS)
     yield
 
 
@@ -259,6 +272,27 @@ def _split_song_task(song_id: str) -> None:
         logger.exception("Failed to pre-cache default version for %s", song_id)
 
 
+async def _enqueue_split_task(song_id: str) -> None:
+    """Async wrapper that enforces the split-worker concurrency limit.
+
+    Songs wait with status "queued" until a semaphore slot is free, then
+    transition to "splitting" before the actual demucs work begins.
+    The semaphore capacity is set by the MAX_SPLIT_WORKERS environment variable
+    (default: 1), which prevents simultaneous demucs invocations from
+    exhausting CPU and memory on the host.
+    """
+    queue_depth = MAX_SPLIT_WORKERS - split_semaphore._value  # noqa: SLF001
+    if queue_depth > 0:
+        logger.info(
+            "Stem splitting queued for %s (%d job(s) already running)",
+            song_id,
+            queue_depth,
+        )
+    async with split_semaphore:
+        storage.update_status(song_id, SongStatus.SPLITTING)
+        await asyncio.to_thread(_split_song_task, song_id)
+
+
 def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
     """Background task: rubberband-process all stems for the given pitch/tempo pair."""
     song = storage.load_song(song_id)
@@ -349,8 +383,8 @@ def _song_router() -> APIRouter:
         artist, title = await asyncio.to_thread(_read_song_metadata, dest)
         storage.update_metadata(song.id, artist=artist, title=title)
 
-        storage.update_status(song.id, SongStatus.SPLITTING)
-        background_tasks.add_task(_split_song_task, song.id)
+        storage.update_status(song.id, SongStatus.QUEUED)
+        background_tasks.add_task(_enqueue_split_task, song.id)
         return storage.load_song(song.id)  # type: ignore[return-value]
 
     @router.get(
@@ -610,6 +644,7 @@ def _song_router() -> APIRouter:
         """Return server-side configuration values useful to the frontend."""
         return {
             "max_versions_global": MAX_VERSIONS_GLOBAL,
+            "max_split_workers": MAX_SPLIT_WORKERS,
         }
 
     return router

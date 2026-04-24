@@ -19,6 +19,10 @@ services:
       - FRONTEND_DIR=/app/frontend-dist
       - TORCH_HOME=/models
       - DEMUCS_JOBS=4
+      # Maximum number of demucs stem-splitting jobs that run concurrently.
+      # Demucs is very CPU- and memory-intensive; increase this only if the
+      # host has enough cores and RAM to support parallel splitting.
+      - MAX_SPLIT_WORKERS=1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
