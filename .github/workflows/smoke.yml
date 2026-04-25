@@ -4,8 +4,6 @@ name: Smoke Tests
 # Builds the Docker image, starts a container, and exercises the full stack
 # including real demucs stem splitting and rubberband audio processing.
 on:
-  schedule:
-    - cron: "0 3 * * *"  # 03:00 UTC every day
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
