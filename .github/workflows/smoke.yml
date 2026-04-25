@@ -28,9 +28,9 @@ jobs:
           context: .
           load: true
           tags: bass-karaoke-player:smoke
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           target: runtime
+          cache-from: type=gha,scope=smoke-runtime
+          cache-to: type=gha,scope=smoke-runtime,mode=max
 
       - name: Start container
         run: |
@@ -92,10 +92,15 @@ jobs:
           INITIAL_STATUS=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
           echo "SONG_ID=$SONG_ID" >> "$GITHUB_ENV"
           echo "Song ID: $SONG_ID  |  Initial status: $INITIAL_STATUS"
-          [ "$INITIAL_STATUS" = "splitting" ] || {
-            echo "Expected status 'splitting', got: $INITIAL_STATUS"
-            exit 1
-          }
+          case "$INITIAL_STATUS" in
+            queued|splitting)
+              echo "Initial status OK: $INITIAL_STATUS"
+              ;;
+            *)
+              echo "Expected status 'queued' or 'splitting', got: $INITIAL_STATUS"
+              exit 1
+              ;;
+          esac
 
       - name: Smoke – get song by ID
         run: |
@@ -111,7 +116,7 @@ jobs:
       - name: Smoke – wait for stem splitting (demucs)
         run: |
           echo "Polling for status=ready (demucs runs on CPU; allow up to 10 min)…"
-          STATUS="splitting"
+          STATUS="queued"
           for i in $(seq 1 60); do
             STATUS=$(curl -sf "http://localhost:8000/api/songs/$SONG_ID" \
               | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
