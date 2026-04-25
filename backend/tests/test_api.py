@@ -219,6 +219,23 @@ class TestDeleteSong:
         assert resp.status_code == 404
 
 
+class TestTouchSong:
+    def test_touch_existing_sets_last_used_at(self, client: TestClient) -> None:
+        import backend.app.main as main_module
+
+        song = main_module.storage.create_song("track.mp3")
+        assert song.last_used_at is None
+        resp = client.post(f"/api/songs/{song.id}/touch")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == song.id
+        assert data["last_used_at"] is not None
+
+    def test_touch_nonexistent_returns_404(self, client: TestClient) -> None:
+        resp = client.post("/api/songs/ghost/touch")
+        assert resp.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # Stems
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import type { AppTab, EqBand, ServerConfig, Song, Version } from "../types";
 import { DEFAULT_EQ_BANDS } from "../types";
 
 export type EqMode = "global" | "per-stem";
+export type SongSortOrder = "alphabetical" | "recent" | "title" | "last-used";
 
 interface PlayerState {
   // Song list
@@ -40,6 +41,8 @@ interface PlayerState {
   // Upload state
   uploadProgress: number | null; // 0–100 or null when idle
   uploadStatus: string;
+  // Song sort order
+  songSortOrder: SongSortOrder;
 }
 
 interface PlayerActions {
@@ -74,6 +77,7 @@ interface PlayerActions {
   setActiveTab: (tab: AppTab) => void;
   setUploadProgress: (pct: number | null) => void;
   setUploadStatus: (msg: string) => void;
+  setSongSortOrder: (order: SongSortOrder) => void;
 }
 
 const defaultStemEqFor = (stems: string[]): Record<string, EqBand[]> => {
@@ -109,6 +113,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   activeTab: "library",
   uploadProgress: null,
   uploadStatus: "",
+  songSortOrder: "last-used",
 
   setSongs: (songs) => set({ songs }),
   updateSong: (song) =>
@@ -171,4 +176,5 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   setActiveTab: (activeTab) => set({ activeTab }),
   setUploadProgress: (uploadProgress) => set({ uploadProgress }),
   setUploadStatus: (uploadStatus) => set({ uploadStatus }),
+  setSongSortOrder: (songSortOrder) => set({ songSortOrder }),
 }));

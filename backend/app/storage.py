@@ -298,7 +298,18 @@ class SongStorage:
         return str(uuid.uuid4())
 
     def create_song(self, filename: str) -> Song:
-        song = Song(id=self.new_song_id(), filename=filename)
+        song = Song(
+            id=self.new_song_id(), filename=filename, created_at=datetime.now(UTC)
+        )
+        self.save_song(song)
+        return song
+
+    def touch_song(self, song_id: str) -> Song | None:
+        """Update last_used_at for a song to the current UTC time."""
+        song = self.load_song(song_id)
+        if song is None:
+            return None
+        song.last_used_at = datetime.now(UTC)
         self.save_song(song)
         return song
 

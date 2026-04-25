@@ -15,6 +15,8 @@ export interface Song {
   status: SongStatus;
   stems: StemName[];
   error_message?: string | null;
+  created_at?: string | null;
+  last_used_at?: string | null;
 }
 
 export interface SongListResponse {

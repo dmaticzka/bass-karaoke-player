@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -68,6 +69,8 @@ class Song(BaseModel):
     status: SongStatus = SongStatus.UPLOADED
     stems: list[StemName] = Field(default_factory=list)
     error_message: str | None = None
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
 
 
 class SongListResponse(BaseModel):
