@@ -59,7 +59,8 @@ a:hover { text-decoration: underline; }
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   max-width: 900px;
   margin: 0 auto;
 }
