@@ -15,4 +15,27 @@ export default defineConfig({
       "/static": "http://localhost:8000",
     },
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    globals: true,
+    typecheck: {
+      tsconfig: "./tsconfig.test.json",
+    },
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/vite-env.d.ts",
+        "src/main.tsx",
+        "src/test/**",
+        "src/index.css",
+      ],
+      thresholds: {
+        lines: 80,
+        branches: 75,
+      },
+      reporter: ["text", "lcov"],
+    },
+  },
 });

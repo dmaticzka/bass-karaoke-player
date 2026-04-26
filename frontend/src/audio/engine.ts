@@ -40,6 +40,16 @@ export function clearStemNodes(): void {
   engine.stemNodes = {};
 }
 
+/** Reset the entire engine singleton. Only call from tests. */
+export function _resetForTesting(): void {
+  engine.ctx = null;
+  engine.stemNodes = {};
+  if (engine.seekTimerId !== null) {
+    clearInterval(engine.seekTimerId);
+    engine.seekTimerId = null;
+  }
+}
+
 function buildEqChain(ctx: AudioContext, bands: EqBand[]): BiquadFilterNode[] {
   return bands.map((b) => {
     const f = ctx.createBiquadFilter();
