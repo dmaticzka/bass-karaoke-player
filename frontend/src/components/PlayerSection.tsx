@@ -178,7 +178,7 @@ export function PlayerSection() {
       eng.wireStemNode(stem as StemName, audio, vol, globalEq);
     }
 
-    const dur = eng.getDuration();
+    const dur = eng.getDuration() * tempoRatio;
     setDuration(dur);
   };
 
@@ -225,8 +225,9 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   const getCurrentPos = () => {
     const s = usePlayerStore.getState();
+    const tempoRatio = s.activeVersion.tempo;
     return s.isPlaying
-      ? s.startOffset + (eng.currentTime() - s.startTime)
+      ? s.startOffset + (eng.currentTime() - s.startTime) * tempoRatio
       : s.startOffset;
   };
 
@@ -247,7 +248,11 @@ export function PlayerSection() {
 
   const playAll = (offset: number) => {
     const s = usePlayerStore.getState();
-    eng.playAll(offset, s.loopEnabled, s.loopStart, s.loopEnd);
+    const tempoRatio = s.activeVersion.tempo;
+    const engineOffset = offset / tempoRatio;
+    const engineLoopStart = s.loopStart !== null ? s.loopStart / tempoRatio : null;
+    const engineLoopEnd = s.loopEnd !== null ? s.loopEnd / tempoRatio : null;
+    eng.playAll(engineOffset, s.loopEnabled, engineLoopStart, engineLoopEnd);
 
     const effectiveOffset =
       s.loopEnabled && s.loopStart !== null
@@ -262,7 +267,8 @@ export function PlayerSection() {
 
   const pauseAll = () => {
     const s = usePlayerStore.getState();
-    const newOffset = s.startOffset + (eng.currentTime() - s.startTime);
+    const tempoRatio = s.activeVersion.tempo;
+    const newOffset = s.startOffset + (eng.currentTime() - s.startTime) * tempoRatio;
     setStartOffset(newOffset);
     eng.stopSources();
     eng.stopSeekTimer();
@@ -294,9 +300,7 @@ export function PlayerSection() {
 
   const handleSeekRelative = (delta: number) => {
     const s = usePlayerStore.getState();
-    const current = s.isPlaying
-      ? s.startOffset + (eng.currentTime() - s.startTime)
-      : s.startOffset;
+    const current = getCurrentPos();
     const newPos = Math.max(0, Math.min(current + delta, s.duration));
     handleSeek(newPos);
   };
@@ -315,11 +319,7 @@ export function PlayerSection() {
       const offset = getCurrentPos();
       eng.stopSources();
       eng.stopSeekTimer();
-      const s = usePlayerStore.getState();
-      eng.playAll(offset, s.loopEnabled, s.loopStart, s.loopEnd);
-      setStartOffset(offset);
-      setStartTime(eng.currentTime());
-      startSeekTimer();
+      playAll(offset);
     }
   };
 
@@ -354,10 +354,7 @@ export function PlayerSection() {
       const offset = getCurrentPos();
       eng.stopSources();
       eng.stopSeekTimer();
-      eng.playAll(offset, false, null, null);
-      setStartOffset(offset);
-      setStartTime(eng.currentTime());
-      startSeekTimer();
+      playAll(offset);
     }
   };
 
