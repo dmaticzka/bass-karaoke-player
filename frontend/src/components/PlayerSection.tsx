@@ -66,6 +66,7 @@ export function PlayerSection() {
   const setLoopEnd = usePlayerStore((s) => s.setLoopEnd);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
+  const [isPrecalculating, setIsPrecalculating] = useState(false);
 
   const versionPollRef = useRef<number | null>(null);
   const loadRequestRef = useRef(0);
@@ -405,13 +406,30 @@ export function PlayerSection() {
     }
   };
 
+  const handlePrecalculate = async () => {
+    if (!activeSong) return;
+    const pitchSemitones = pitch;
+    const tempoRatio = tempo / 100;
+    setIsPrecalculating(true);
+    try {
+      await api.createVersion(activeSong.id, {
+        pitch_semitones: pitchSemitones,
+        tempo_ratio: tempoRatio,
+      });
+      await fetchVersions();
+    } catch (e) {
+      console.error("Precalculate failed:", e);
+    } finally {
+      setIsPrecalculating(false);
+    }
+  };
+
   const handleSelectVersion = async (vPitch: number, vTempo: number) => {
     if (
       activeVersion.pitch === vPitch &&
       activeVersion.tempo === vTempo
     )
       return;
-    const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
     const requestId = beginLoadRequest();
     stopAll();
@@ -491,6 +509,7 @@ export function PlayerSection() {
           <input id="pitch-slider" type="range" min={-12} max={12} readOnly />
           <input id="tempo-slider" type="range" min={25} max={200} readOnly />
           <button id="apply-btn" />
+          <button id="precalculate-btn" />
           <button id="reset-btn" />
           <button id="play-pause-btn" />
           <button id="stop-btn" />
@@ -509,6 +528,8 @@ export function PlayerSection() {
       <GlobalControls
         onApply={handleApply}
         onReset={handleReset}
+        onPrecalculate={handlePrecalculate}
+        isPrecalculating={isPrecalculating}
       />
 
       <VersionsPicker onSelectVersion={handleSelectVersion} />

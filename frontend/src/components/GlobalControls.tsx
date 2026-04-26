@@ -3,9 +3,11 @@ import { usePlayerStore } from "../store/playerStore";
 interface Props {
   onApply: () => Promise<void>;
   onReset: () => Promise<void>;
+  onPrecalculate: () => Promise<void>;
+  isPrecalculating?: boolean;
 }
 
-export function GlobalControls({ onApply, onReset }: Props) {
+export function GlobalControls({ onApply, onReset, onPrecalculate, isPrecalculating = false }: Props) {
   const pitch = usePlayerStore((s) => s.pitch);
   const tempo = usePlayerStore((s) => s.tempo);
   const isLoading = usePlayerStore((s) => s.isLoading);
@@ -58,7 +60,15 @@ export function GlobalControls({ onApply, onReset }: Props) {
           disabled={disabled}
           onClick={() => void onApply()}
         >
-          Apply
+          Apply and Load
+        </button>
+        <button
+          id="precalculate-btn"
+          className="btn btn-secondary"
+          disabled={disabled || isPrecalculating}
+          onClick={() => void onPrecalculate()}
+        >
+          {isPrecalculating ? "Precalculating…" : "Precalculate"}
         </button>
         <button
           id="reset-btn"

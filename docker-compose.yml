@@ -23,6 +23,11 @@ services:
       # Demucs is very CPU- and memory-intensive; increase this only if the
       # host has enough cores and RAM to support parallel splitting.
       - MAX_SPLIT_WORKERS=1
+      # Maximum number of rubberband stem-processing jobs that run concurrently.
+      # Rubberband is not memory-intensive; the default of 4 allows several
+      # stems to be processed in parallel. Increase or decrease based on the
+      # number of CPU cores available on the host.
+      - MAX_PROCESS_WORKERS=4
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import os
 import shutil
@@ -57,6 +58,11 @@ MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
 # Increase this value only if the host has enough cores and RAM to run
 # several demucs instances in parallel.
 MAX_SPLIT_WORKERS = int(os.getenv("MAX_SPLIT_WORKERS", "1"))
+# Maximum number of rubberband stem-processing jobs that may run concurrently.
+# Unlike demucs, rubberband is not memory-intensive, so a higher default is
+# appropriate.  Set to 1 to disable parallelism.  All rubberband jobs across
+# all songs share this pool, so this also acts as a global queue.
+MAX_PROCESS_WORKERS = int(os.getenv("MAX_PROCESS_WORKERS", "4"))
 
 # ---------------------------------------------------------------------------
 # Shared state
@@ -70,15 +76,24 @@ processor: RubberbandProcessor
 # bypass the lifespan still get a working semaphore.  The lifespan recreates
 # it to pick up any runtime value of MAX_SPLIT_WORKERS.
 split_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_SPLIT_WORKERS)
+# Thread-pool executor for rubberband processing.  Limits the total number of
+# concurrent rubberband processes across all songs.  Initialised at module
+# level so tests that bypass the lifespan still get a working executor.
+process_executor: concurrent.futures.ThreadPoolExecutor = (
+    concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PROCESS_WORKERS)
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    global storage, splitter, processor, split_semaphore  # noqa: PLW0603
+    global storage, splitter, processor, split_semaphore, process_executor  # noqa: PLW0603
     storage = SongStorage(DATA_DIR)
     splitter = StemSplitter()
     processor = RubberbandProcessor()
     split_semaphore = asyncio.Semaphore(MAX_SPLIT_WORKERS)
+    process_executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=MAX_PROCESS_WORKERS
+    )
     yield
 
 
@@ -289,34 +304,53 @@ async def _enqueue_split_task(song_id: str) -> None:
 
 
 def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
-    """Background task: rubberband-process all stems for the given pitch/tempo pair."""
+    """Background task: rubberband-process all stems for the given pitch/tempo pair.
+
+    Stems are processed in parallel using the global *process_executor* thread
+    pool, which is bounded by MAX_PROCESS_WORKERS.  This limits the total number
+    of concurrent rubberband invocations across all songs and acts as a queue
+    when demand exceeds the pool capacity.
+    """
     song = storage.load_song(song_id)
     if song is None:
         logger.error("process_version_task: song %s not found", song_id)
         return
 
-    for stem_name in song.stems:
-        stem = StemName(stem_name)
-        input_path = storage.stem_path(song_id, stem)
+    def _process_single_stem(stem_name: StemName) -> None:
+        input_path = storage.stem_path(song_id, stem_name)
         if not input_path.exists():
-            logger.warning(
-                "process_version_task: stem file missing for %s/%s", song_id, stem
+            raise AudioProcessorError(
+                f"Stem file missing for {song_id}/{stem_name}: {input_path}"
             )
-            return
-        output_path = storage.processed_path(song_id, stem, pitch, tempo)
+        output_path = storage.processed_path(song_id, stem_name, pitch, tempo)
         if not output_path.exists():
-            try:
-                processor.process(
-                    input_path,
-                    output_path,
-                    pitch_semitones=pitch,
-                    tempo_ratio=tempo,
-                )
-            except AudioProcessorError:
-                logger.exception(
-                    "process_version_task: processing failed for %s/%s", song_id, stem
-                )
-                return
+            processor.process(
+                input_path,
+                output_path,
+                pitch_semitones=pitch,
+                tempo_ratio=tempo,
+            )
+
+    futures: dict[concurrent.futures.Future[None], StemName] = {
+        process_executor.submit(_process_single_stem, StemName(stem_name)): StemName(
+            stem_name
+        )
+        for stem_name in song.stems
+    }
+
+    failed = False
+    for future in concurrent.futures.as_completed(futures):
+        stem_name = futures[future]
+        try:
+            future.result()
+        except AudioProcessorError:
+            logger.exception(
+                "process_version_task: processing failed for %s/%s", song_id, stem_name
+            )
+            failed = True
+
+    if failed:
+        return
 
     storage.touch_version(song_id, pitch, tempo)
     storage.evict_global_lru(MAX_VERSIONS_GLOBAL)
@@ -652,6 +686,7 @@ def _song_router() -> APIRouter:
         return {
             "max_versions_global": MAX_VERSIONS_GLOBAL,
             "max_split_workers": MAX_SPLIT_WORKERS,
+            "max_process_workers": MAX_PROCESS_WORKERS,
         }
 
     return router
