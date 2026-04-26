@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Folder, Music2 } from "lucide-react";
 import { usePlayerStore } from "./store/playerStore";
 import { api } from "./api/client";
+import { getSongTitle } from "./utils/songDisplay";
 import { UploadSection } from "./components/UploadSection";
 import { SongList } from "./components/SongList";
 import { PlayerSection } from "./components/PlayerSection";
@@ -92,7 +93,7 @@ export default function App() {
           Bass Karaoke Player
         </h1>
         {activeTab !== "library" && activeSong && (
-          <p className="subtitle">{activeSong.filename}</p>
+          <p className="subtitle">{getSongTitle(activeSong)}</p>
         )}
         {activeTab === "library" && (
           <p className="subtitle">
