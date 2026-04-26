@@ -85,19 +85,19 @@ export const EQ_PRESETS: Record<string, EqBand[]> = {
   Flat: DEFAULT_EQ_BANDS.map((b) => ({ ...b, gain: 0 })),
   "Boost Bass": DEFAULT_EQ_BANDS.map((b, i) => ({
     ...b,
-    gain: [8, 5, 0, 0, 0][i] ?? 0,
+    gain: [8, 5, 0, 0, 0][i],
   })),
   "Vocal Clarity": DEFAULT_EQ_BANDS.map((b, i) => ({
     ...b,
-    gain: [-2, -3, 3, 5, 2][i] ?? 0,
+    gain: [-2, -3, 3, 5, 2][i],
   })),
   "Reduce Mud": DEFAULT_EQ_BANDS.map((b, i) => ({
     ...b,
-    gain: [0, -5, -2, 0, 0][i] ?? 0,
+    gain: [0, -5, -2, 0, 0][i],
   })),
   "Bass Karaoke": DEFAULT_EQ_BANDS.map((b, i) => ({
     ...b,
-    gain: [0, -8, 2, 4, 3][i] ?? 0,
+    gain: [0, -8, 2, 4, 3][i],
   })),
 };
 
