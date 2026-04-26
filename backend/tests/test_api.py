@@ -32,12 +32,15 @@ def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("FRONTEND_DIR", "/nonexistent")  # skip static mount
 
     # Re-create app fresh for each test
+    import concurrent.futures
+
     import backend.app.main as main_module
 
     main_module.storage = SongStorage(data_dir)
     main_module.splitter = MagicMock()
     main_module.processor = MagicMock()
     main_module.split_semaphore = asyncio.Semaphore(main_module.MAX_SPLIT_WORKERS)
+    main_module.process_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     app = create_app()
     return TestClient(app, raise_server_exceptions=True)
@@ -63,6 +66,8 @@ class TestHealth:
         assert data["max_versions_global"] > 0
         assert "max_split_workers" in data
         assert data["max_split_workers"] >= 1
+        assert "max_process_workers" in data
+        assert data["max_process_workers"] >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +531,23 @@ class TestLifespan:
         # The semaphore must not be locked (all 3 slots free after health check).
         assert not main_module.split_semaphore.locked()
 
+    def test_lifespan_creates_process_executor(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lifespan must initialise a ThreadPoolExecutor for rubberband concurrency."""
+        import concurrent.futures
+
+        import backend.app.main as main_module
+
+        monkeypatch.setattr(main_module, "DATA_DIR", tmp_path / "data")
+        monkeypatch.setattr(main_module, "MAX_PROCESS_WORKERS", 2)
+        app = create_app()
+        with TestClient(app) as client:
+            client.get("/api/health")
+        assert isinstance(
+            main_module.process_executor, concurrent.futures.ThreadPoolExecutor
+        )
+
 
 # ---------------------------------------------------------------------------
 # Upload edge cases
@@ -709,11 +731,6 @@ class TestSplitSongTask:
         from backend.app.models import VersionStatus
 
         assert storage.version_status(song.id, 0.0, 1.0) == VersionStatus.READY
-
-
-# ---------------------------------------------------------------------------
-# get_stem edge cases
-# ---------------------------------------------------------------------------
 
 
 class TestGetStemEdgeCases:
@@ -1432,6 +1449,39 @@ class TestProcessVersionTask:
         main_module.processor = MagicMock()
         _process_version_task("pvt-song", 1.0, 1.0)
         main_module.processor.process.assert_not_called()
+
+    def test_all_stems_processed_with_parallel_executor(self, data_dir: Path) -> None:
+        """All stems are submitted to the process_executor and version is marked ready."""
+        import concurrent.futures
+
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        main_module.process_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=4
+        )
+
+        def fake_process(
+            input_path: Path,
+            output_path: Path,
+            pitch_semitones: float = 0.0,
+            tempo_ratio: float = 1.0,
+        ) -> Path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"\x00")
+            return output_path
+
+        main_module.processor = MagicMock()
+        main_module.processor.process.side_effect = fake_process
+        _process_version_task("pvt-song", 3.0, 0.8)
+
+        from backend.app.models import VersionStatus
+
+        assert storage.version_status("pvt-song", 3.0, 0.8) == VersionStatus.READY
+        assert main_module.processor.process.call_count == len(StemName)
 
 
 # ---------------------------------------------------------------------------
