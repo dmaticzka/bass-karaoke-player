@@ -430,6 +430,7 @@ export function PlayerSection() {
       activeVersion.tempo === vTempo
     )
       return;
+    const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
     const requestId = beginLoadRequest();
     stopAll();

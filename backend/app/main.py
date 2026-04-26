@@ -319,9 +319,7 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
     def _process_single_stem(stem_name: StemName) -> None:
         input_path = storage.stem_path(song_id, stem_name)
         if not input_path.exists():
-            raise AudioProcessorError(
-                f"Stem file missing for {song_id}/{stem_name}: {input_path}"
-            )
+            raise AudioProcessorError(f"Stem file missing for {song_id}/{stem_name}")
         output_path = storage.processed_path(song_id, stem_name, pitch, tempo)
         if not output_path.exists():
             processor.process(
@@ -332,10 +330,8 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
             )
 
     futures: dict[concurrent.futures.Future[None], StemName] = {
-        process_executor.submit(_process_single_stem, StemName(stem_name)): StemName(
-            stem_name
-        )
-        for stem_name in song.stems
+        process_executor.submit(_process_single_stem, stem): stem
+        for stem in (StemName(s) for s in song.stems)
     }
 
     failed = False
