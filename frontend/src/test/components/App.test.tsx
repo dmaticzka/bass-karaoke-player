@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import App from "../../App";
 import { usePlayerStore } from "../../store/playerStore";
@@ -97,6 +97,10 @@ function resetStore() {
   });
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetStore();
@@ -110,6 +114,14 @@ beforeEach(() => {
     setItem: vi.fn(),
     removeItem: vi.fn(),
   });
+  // Mock fetch used by PlayerSection.fetchAndDecodeStems() — Node rejects relative URLs
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    }),
+  );
 });
 
 describe("App", () => {
