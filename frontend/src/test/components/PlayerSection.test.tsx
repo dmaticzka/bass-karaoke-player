@@ -12,6 +12,7 @@ import type { Song } from "../../types";
 vi.mock("../../api/client", () => ({
   api: {
     getVersions: vi.fn(),
+    createVersion: vi.fn(),
     processStem: vi.fn(),
     stemUrl: vi.fn((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
     processedStemUrl: vi.fn(
@@ -558,5 +559,53 @@ describe("PlayerSection", () => {
       fireEvent.click(document.querySelector("#loop-clear-btn")!);
     });
     expect(eng.stopSources).toHaveBeenCalled();
+  });
+
+  it("Precalculate button calls createVersion and refreshes versions list on success", async () => {
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({
+        versions: [{ pitch_semitones: 2, tempo_ratio: 1.0, is_default: false, status: "processing" }],
+      }); // after precalculate
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    // Set pitch AFTER initial load effect resets it
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    expect(vi.mocked(api.createVersion)).toHaveBeenCalledWith("s1", {
+      pitch_semitones: 2,
+      tempo_ratio: 1.0,
+    });
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
+
+  it("Precalculate button still refreshes versions list when createVersion throws (second call)", async () => {
+    vi.mocked(api.createVersion).mockRejectedValue(new Error("conflict"));
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({
+        versions: [{ pitch_semitones: 2, tempo_ratio: 1.0, is_default: false, status: "processing" }],
+      }); // after precalculate (version already queued)
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    // Set pitch AFTER initial load effect resets it
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    // Even though createVersion threw, versions list must be refreshed
+    expect(vi.mocked(api.getVersions)).toHaveBeenCalledTimes(2);
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
   });
 });

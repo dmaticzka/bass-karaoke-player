@@ -416,10 +416,10 @@ export function PlayerSection() {
         pitch_semitones: pitchSemitones,
         tempo_ratio: tempoRatio,
       });
-      await fetchVersions();
     } catch (e) {
       console.error("Precalculate failed:", e);
     } finally {
+      await fetchVersions();
       setIsPrecalculating(false);
     }
   };
