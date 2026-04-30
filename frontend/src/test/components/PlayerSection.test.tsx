@@ -608,4 +608,48 @@ describe("PlayerSection", () => {
     expect(vi.mocked(api.getVersions)).toHaveBeenCalledTimes(2);
     expect(usePlayerStore.getState().versions).toHaveLength(1);
   });
+
+  it("Precalculate button adds version optimistically to list before API resolves", async () => {
+    // createVersion never resolves so we can inspect the in-flight state
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValueOnce({ versions: [] }); // initial load
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 3, tempo: 100 });
+    });
+    // Click without draining all microtasks – synchronous part of handler runs first
+    fireEvent.click(document.querySelector("#precalculate-btn")!);
+    const versions = usePlayerStore.getState().versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      pitch_semitones: 3,
+      tempo_ratio: 1.0,
+      is_default: false,
+      status: "processing",
+    });
+  });
+
+  it("Precalculate button does not add duplicate version if already in list", async () => {
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValueOnce({ versions: [] }); // initial load
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({
+        pitch: 3,
+        tempo: 100,
+        versions: [
+          { pitch_semitones: 3, tempo_ratio: 1.0, is_default: false, status: "processing" },
+        ],
+      });
+    });
+    fireEvent.click(document.querySelector("#precalculate-btn")!);
+    // Still exactly one entry – no duplicate added
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
 });

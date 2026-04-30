@@ -411,6 +411,27 @@ export function PlayerSection() {
     const pitchSemitones = pitch;
     const tempoRatio = tempo / 100;
     setIsPrecalculating(true);
+
+    // Optimistically add the version to the list immediately so it is visible
+    // in the UI before the server has written any processed files to disk.
+    const currentVersions = usePlayerStore.getState().versions;
+    if (
+      !currentVersions.some(
+        (v) => v.pitch_semitones === pitchSemitones && v.tempo_ratio === tempoRatio,
+      )
+    ) {
+      setVersions([
+        ...currentVersions,
+        {
+          pitch_semitones: pitchSemitones,
+          tempo_ratio: tempoRatio,
+          is_default: false,
+          status: "processing",
+        },
+      ]);
+    }
+    startVersionPolling();
+
     try {
       await api.createVersion(activeSong.id, {
         pitch_semitones: pitchSemitones,
