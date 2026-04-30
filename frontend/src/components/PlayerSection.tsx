@@ -96,8 +96,24 @@ export function PlayerSection() {
   };
 
   const applyVersions = (versions: Version[]) => {
-    setVersions(versions);
-    const hasProcessing = versions.some(
+    // Preserve any optimistic "processing" entries that the server doesn't know
+    // about yet (no files on disk → not returned by list_versions).  Once the
+    // server finishes processing and polling returns the real entry, those
+    // entries will be present in `versions` and the optimistic placeholder is
+    // naturally replaced.
+    const existing = usePlayerStore.getState().versions;
+    const optimisticOnly = existing.filter(
+      (ev) =>
+        ev.status === "processing" &&
+        !versions.some(
+          (sv) =>
+            sv.pitch_semitones === ev.pitch_semitones &&
+            sv.tempo_ratio === ev.tempo_ratio,
+        ),
+    );
+    const merged = [...versions, ...optimisticOnly];
+    setVersions(merged);
+    const hasProcessing = merged.some(
       (v) => v.status === "processing" || v.status === "partial",
     );
     if (hasProcessing) startVersionPolling();
