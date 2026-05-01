@@ -69,7 +69,9 @@ vi.mock("../../audio/audioCache", () => ({
   set: vi.fn(),
   clear: vi.fn(),
   size: vi.fn(() => 0),
+  has: vi.fn(() => false),
   MAX_ENTRIES: 20,
+  fetchWithCache: vi.fn(() => Promise.resolve(new ArrayBuffer(0))),
 }));
 
 const readySong: Song = {

@@ -172,14 +172,9 @@ export function PlayerSection() {
         } else {
           url = api.stemUrl(activeSong.id, stem);
         }
-        let encoded = audioCache.get(url);
-        if (encoded === undefined) {
-          const resp = await fetch(url);
-          encoded = await resp.arrayBuffer();
-          audioCache.set(url, encoded);
-        }
-        // decodeAudioData may consume/mutate input buffers in some engines; the
-        // cache returns a copy and fresh fetches use request-scoped buffers.
+        const encoded = await audioCache.fetchWithCache(url);
+        // decodeAudioData may consume/mutate input buffers in some engines;
+        // fetchWithCache always returns a fresh buffer not held by any cache layer.
         const audio = await ctx.decodeAudioData(encoded);
         return { stem, audio };
       }),

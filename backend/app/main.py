@@ -464,7 +464,11 @@ def _song_router() -> APIRouter:
         path = storage.stem_path(song_id, stem)
         if not path.exists():
             raise HTTPException(status_code=404, detail="Stem file missing on disk.")
-        return FileResponse(path, media_type="audio/mpeg")
+        return FileResponse(
+            path,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
 
     @router.post(
         "/songs/{song_id}/stems/{stem_name}/process",
@@ -564,7 +568,11 @@ def _song_router() -> APIRouter:
                 ) from exc
 
         storage.touch_version(song_id, pitch, tempo)
-        return FileResponse(output_path, media_type="audio/mpeg")
+        return FileResponse(
+            output_path,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
 
     @router.get(
         "/songs/{song_id}/versions",
