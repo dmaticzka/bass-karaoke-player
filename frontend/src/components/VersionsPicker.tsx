@@ -31,7 +31,7 @@ export function VersionsPicker({ onSelectVersion }: Props) {
 
     let cancelled = false;
 
-    void (async () => {
+    async function checkOfflineCache() {
       const newCached = new Set<string>();
       await Promise.all(
         versions.map(async (ver) => {
@@ -56,7 +56,9 @@ export function VersionsPicker({ onSelectVersion }: Props) {
         }),
       );
       if (!cancelled) setOfflineCachedVersionKeys(newCached);
-    })();
+    }
+
+    void checkOfflineCache();
 
     return () => {
       cancelled = true;

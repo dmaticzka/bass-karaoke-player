@@ -107,8 +107,13 @@ export async function fetchWithCache(url: string): Promise<ArrayBuffer> {
  * Check whether *url* is available in the Service Worker's persistent offline
  * cache (the {@link CACHE_STORAGE_NAME} Cache Storage bucket).
  *
- * Returns `false` gracefully when Cache Storage is unavailable (e.g. in
- * non-secure contexts or test environments without a SW).
+ * Returns `false` in the following cases:
+ *  - Cache Storage is unavailable (e.g. non-secure contexts, test environments)
+ *  - The cache bucket cannot be opened (e.g. quota exceeded)
+ *  - The URL has not yet been cached (i.e. the stem has not been played offline)
+ *
+ * Returns `true` only when the specific URL has a cached entry in the bucket,
+ * meaning the corresponding stem can be played without a network connection.
  */
 export async function hasInOfflineCache(url: string): Promise<boolean> {
   if (typeof caches === "undefined") return false;
