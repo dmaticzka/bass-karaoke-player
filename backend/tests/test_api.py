@@ -456,6 +456,138 @@ class TestFrontend:
         assert resp.status_code == 404
         assert "index.html" in resp.json()["detail"]
 
+    def test_sw_js_served_at_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /sw.js returns the service worker with correct content-type."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        (frontend_dir / "sw.js").write_text("self.addEventListener('install',()=>{});")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+        resp = test_client.get("/sw.js")
+        assert resp.status_code == 200
+        assert "javascript" in resp.headers["content-type"]
+        assert "Service-Worker-Allowed" in resp.headers
+        assert resp.headers["Service-Worker-Allowed"] == "/"
+
+    def test_sw_js_returns_404_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /sw.js returns 404 when sw.js is absent from FRONTEND_DIR."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        # Intentionally do NOT create sw.js
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app, raise_server_exceptions=False)
+        resp = test_client.get("/sw.js")
+        assert resp.status_code == 404
+
+    def test_manifest_json_served_at_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /manifest.json returns the PWA manifest with correct content-type."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        (frontend_dir / "manifest.json").write_text('{"name":"Bass Karaoke Player"}')
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+        resp = test_client.get("/manifest.json")
+        assert resp.status_code == 200
+        assert (
+            "manifest" in resp.headers["content-type"]
+            or "json" in resp.headers["content-type"]
+        )
+
+    def test_manifest_json_returns_404_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /manifest.json returns 404 when the file is absent."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app, raise_server_exceptions=False)
+        resp = test_client.get("/manifest.json")
+        assert resp.status_code == 404
+
+    def test_icon_svg_served_at_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /icon.svg returns the icon with correct content-type."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        (frontend_dir / "icon.svg").write_text("<svg></svg>")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+        resp = test_client.get("/icon.svg")
+        assert resp.status_code == 200
+        assert "svg" in resp.headers["content-type"]
+
+    def test_icon_svg_returns_404_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /icon.svg returns 404 when the file is absent."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        main_module.storage = SongStorage(tmp_path / "data")
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app, raise_server_exceptions=False)
+        resp = test_client.get("/icon.svg")
+        assert resp.status_code == 404
+
     def test_default_frontend_dir_is_dist(self) -> None:
         """FRONTEND_DIR must default to 'frontend/dist' (the Vite build output)."""
         import backend.app.main as main_module

@@ -224,6 +224,31 @@ def create_app() -> FastAPI:
                 )
             return FileResponse(str(index))
 
+        @app.get("/sw.js", include_in_schema=False)
+        async def serve_sw() -> FileResponse:
+            sw = FRONTEND_DIR / "sw.js"
+            if not sw.is_file():
+                raise HTTPException(status_code=404, detail="Service worker not found.")
+            return FileResponse(
+                str(sw),
+                media_type="application/javascript",
+                headers={"Service-Worker-Allowed": "/"},
+            )
+
+        @app.get("/manifest.json", include_in_schema=False)
+        async def serve_manifest() -> FileResponse:
+            manifest = FRONTEND_DIR / "manifest.json"
+            if not manifest.is_file():
+                raise HTTPException(status_code=404, detail="manifest.json not found.")
+            return FileResponse(str(manifest), media_type="application/manifest+json")
+
+        @app.get("/icon.svg", include_in_schema=False)
+        async def serve_icon() -> FileResponse:
+            icon = FRONTEND_DIR / "icon.svg"
+            if not icon.is_file():
+                raise HTTPException(status_code=404, detail="icon.svg not found.")
+            return FileResponse(str(icon), media_type="image/svg+xml")
+
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     app.include_router(_song_router())

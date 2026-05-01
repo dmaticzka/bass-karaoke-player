@@ -70,6 +70,7 @@ vi.mock("../../audio/audioCache", () => ({
   clear: vi.fn(),
   size: vi.fn(() => 0),
   has: vi.fn(() => false),
+  hasInOfflineCache: vi.fn(() => Promise.resolve(false)),
   MAX_ENTRIES: 20,
   fetchWithCache: vi.fn(() => Promise.resolve(new ArrayBuffer(0))),
 }));

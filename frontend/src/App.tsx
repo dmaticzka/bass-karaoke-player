@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Folder, Music2 } from "lucide-react";
+import { Folder, Music2, WifiOff } from "lucide-react";
 import { usePlayerStore } from "./store/playerStore";
 import { api } from "./api/client";
 import { getSongTitle } from "./utils/songDisplay";
@@ -22,6 +22,19 @@ export default function App() {
 
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [eqCollapsed, setEqCollapsed] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  // Track online/offline status for the banner
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Bootstrap: fetch config + song list
   useEffect(() => {
@@ -86,6 +99,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {/* Offline banner – shown when the browser has no network connection */}
+      {!isOnline && (
+        <div className="offline-banner" role="status" aria-live="polite">
+          <WifiOff size={14} aria-hidden="true" />
+          You are offline – playing from cache
+        </div>
+      )}
+
       {/* Sticky header */}
       <header className="app-header">
         <h1>

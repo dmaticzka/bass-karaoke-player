@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import * as audioCache from "../audio/audioCache";
@@ -12,9 +13,55 @@ export function VersionsPicker({ onSelectVersion }: Props) {
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const activeSong = usePlayerStore((s) => s.activeSong);
   const setVersions = usePlayerStore((s) => s.setVersions);
-  // Subscribe to isLoading so the component re-renders when stem loading completes
-  // and the client-cache indicator reflects the updated audioCache state.
-  usePlayerStore((s) => s.isLoading);
+  // Subscribe to isLoading so we re-check the offline cache when stem
+  // loading completes and the SW has had a chance to cache the new stems.
+  const isLoading = usePlayerStore((s) => s.isLoading);
+
+  // Keys of versions whose stems are fully available in the offline cache.
+  // Populated asynchronously by checking the Service Worker's Cache Storage.
+  const [offlineCachedVersionKeys, setOfflineCachedVersionKeys] = useState<
+    Set<string>
+  >(new Set());
+
+  useEffect(() => {
+    if (!activeSong || activeSong.stems.length === 0) {
+      setOfflineCachedVersionKeys(new Set());
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const newCached = new Set<string>();
+      await Promise.all(
+        versions.map(async (ver) => {
+          const useProcessed =
+            ver.pitch_semitones !== 0 || ver.tempo_ratio !== 1.0;
+          const stemResults = await Promise.all(
+            activeSong.stems.map((stem) => {
+              const url = useProcessed
+                ? api.processedStemUrl(
+                    activeSong.id,
+                    stem,
+                    ver.pitch_semitones,
+                    ver.tempo_ratio,
+                  )
+                : api.stemUrl(activeSong.id, stem);
+              return audioCache.hasInOfflineCache(url);
+            }),
+          );
+          if (stemResults.every(Boolean)) {
+            newCached.add(`${ver.pitch_semitones}-${ver.tempo_ratio}`);
+          }
+        }),
+      );
+      if (!cancelled) setOfflineCachedVersionKeys(newCached);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [versions, activeSong, isLoading]);
 
   const handleDelete = async (ver: Version) => {
     if (!activeSong) return;
@@ -55,16 +102,9 @@ export function VersionsPicker({ onSelectVersion }: Props) {
             activeVersion.pitch === ver.pitch_semitones &&
             activeVersion.tempo === ver.tempo_ratio;
           const clickable = ver.status !== "processing";
-          const useProcessed = ver.pitch_semitones !== 0 || ver.tempo_ratio !== 1.0;
-          const isClientCached =
-            activeSong !== null &&
-            activeSong.stems.length > 0 &&
-            activeSong.stems.every((stem) => {
-              const url = useProcessed
-                ? api.processedStemUrl(activeSong.id, stem, ver.pitch_semitones, ver.tempo_ratio)
-                : api.stemUrl(activeSong.id, stem);
-              return audioCache.has(url);
-            });
+          const isOfflineCached = offlineCachedVersionKeys.has(
+            `${ver.pitch_semitones}-${ver.tempo_ratio}`,
+          );
 
           return (
             <li
@@ -73,11 +113,15 @@ export function VersionsPicker({ onSelectVersion }: Props) {
                 "version-item",
                 ver.is_default ? "default-version" : "",
                 isActive ? "active" : "",
-                isClientCached ? "version-cached" : "",
+                isOfflineCached ? "version-cached" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
-              title={`Pitch: ${pitchStr} semitones, Tempo: ${tempoStr}`}
+              title={
+                isOfflineCached
+                  ? `Pitch: ${pitchStr} semitones, Tempo: ${tempoStr} – available offline`
+                  : `Pitch: ${pitchStr} semitones, Tempo: ${tempoStr}`
+              }
               onClick={clickable ? () => void onSelectVersion(ver.pitch_semitones, ver.tempo_ratio) : undefined}
               style={{ cursor: clickable ? "pointer" : "default" }}
             >

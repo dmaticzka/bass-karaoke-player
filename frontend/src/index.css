@@ -65,6 +65,22 @@ a:hover { text-decoration: underline; }
   margin: 0 auto;
 }
 
+/* ---------- Offline banner ---------- */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: #3a2a00;
+  color: #f0c040;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.35rem 1rem;
+  text-align: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid #5a4200;
+}
+
 /* ---------- Header ---------- */
 .app-header {
   position: sticky;
@@ -388,6 +404,8 @@ a:hover { text-decoration: underline; }
 }
 .version-status-badge.status-processing { background: #555; color: #ddd; animation: pulse 1.2s ease-in-out infinite; }
 .version-status-badge.status-partial { background: #4a4a4a; color: #ccc; }
+/* version-cached: all stems for this version are available in the offline
+   (Service Worker) cache and will play without a network connection. */
 .version-item.version-cached { border-left: 3px solid var(--color-accent); padding-left: calc(0.65rem - 3px); }
 
 /* ---------- Stems stack (vertical) ---------- */

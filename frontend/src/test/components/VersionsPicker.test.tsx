@@ -5,7 +5,7 @@ import { usePlayerStore } from "../../store/playerStore";
 import type { StemName, Version } from "../../types";
 
 vi.mock("../../audio/audioCache", () => ({
-  has: vi.fn().mockReturnValue(false),
+  hasInOfflineCache: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -159,7 +159,7 @@ describe("VersionsPicker", () => {
     expect(onSelectVersion).not.toHaveBeenCalled();
   });
 
-  describe("client-cache indicator (version-cached class)", () => {
+  describe("offline-cache indicator (version-cached class)", () => {
     const STEMS: StemName[] = ["bass", "drums", "vocals", "other"];
 
     function resetStoreWithStems(
@@ -181,28 +181,34 @@ describe("VersionsPicker", () => {
       });
     }
 
-    it("adds version-cached class when all stems are in the client cache", async () => {
+    it("adds version-cached class when all stems are in the offline cache", async () => {
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasInOfflineCache).mockResolvedValue(true);
       resetStoreWithStems([defaultVersion]);
-      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
       expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
     });
 
-    it("does not add version-cached class when stems are not in the client cache", async () => {
+    it("does not add version-cached class when stems are not in the offline cache", async () => {
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(false);
+      vi.mocked(audioCache.hasInOfflineCache).mockResolvedValue(false);
       resetStoreWithStems([defaultVersion]);
-      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
     });
 
     it("uses processedStemUrl for non-default versions", async () => {
       const { api } = await import("../../api/client");
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasInOfflineCache).mockResolvedValue(true);
       resetStoreWithStems([customVersion]);
-      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
       expect(vi.mocked(api.processedStemUrl)).toHaveBeenCalled();
       expect(vi.mocked(api.stemUrl)).not.toHaveBeenCalled();
     });
@@ -210,14 +216,16 @@ describe("VersionsPicker", () => {
     it("uses stemUrl for the default version", async () => {
       const { api } = await import("../../api/client");
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasInOfflineCache).mockResolvedValue(true);
       resetStoreWithStems([defaultVersion]);
-      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
       expect(vi.mocked(api.stemUrl)).toHaveBeenCalled();
       expect(vi.mocked(api.processedStemUrl)).not.toHaveBeenCalled();
     });
 
-    it("does not add version-cached class when activeSong has no stems", () => {
+    it("does not add version-cached class when activeSong has no stems", async () => {
       usePlayerStore.setState({
         versions: [defaultVersion],
         activeVersion: { pitch: 0, tempo: 1.0 },
@@ -230,8 +238,21 @@ describe("VersionsPicker", () => {
           stems: [],
         },
       });
-      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
+    });
+
+    it("shows 'available offline' in title when version is offline-cached", async () => {
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.hasInOfflineCache).mockResolvedValue(true);
+      resetStoreWithStems([defaultVersion]);
+      await act(async () => {
+        render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      });
+      const item = document.querySelector(".version-item") as HTMLElement;
+      expect(item.title).toContain("available offline");
     });
   });
 });

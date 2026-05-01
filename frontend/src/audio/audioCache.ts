@@ -2,23 +2,32 @@
  * In-memory LRU cache for compressed stem response bytes.
  *
  * Caches per-stem payloads keyed by request URL so that switching back to a
- * previously loaded song or version does not require a new HTTP round-trip.
- * Decoding still happens on load, but memory pressure is much lower than when
- * retaining decoded PCM buffers for multiple versions.
+ * previously loaded song or version within the same page session does not
+ * require a new fetch round-trip.  Decoding (decodeAudioData) still happens
+ * on every load regardless of whether bytes come from this cache.
  *
- * A two-level cache is used:
- *  L1 – in-memory LRU map (fast, lost on page reload)
- *  L2 – Cache Storage API (persistent across page reloads, survives browser restart)
+ * Persistent caching across page reloads is handled transparently by the
+ * Service Worker (sw.js), which intercepts stem fetch requests and stores
+ * responses in the {@link CACHE_STORAGE_NAME} Cache Storage bucket.  This
+ * module therefore only maintains an in-memory L1 layer; the previous L2
+ * (Cache Storage write-through) layer has been removed to avoid redundancy.
  *
- * Use {@link fetchWithCache} instead of calling the browser `fetch` API directly
- * for stem URLs; it checks L1 then L2 before hitting the network and populates
- * both layers on a network fetch.
+ * Use {@link fetchWithCache} instead of calling the browser `fetch` API
+ * directly for stem URLs; it checks L1 before hitting the network (which the
+ * SW may serve from its offline cache).
+ *
+ * Use {@link hasInOfflineCache} to check whether a URL is available in the
+ * Service Worker's persistent offline cache without fetching its bytes.
  */
 
 /** Maximum number of compressed stem entries kept in memory at once. */
 export const MAX_ENTRIES = 20;
 
-/** Name of the Cache Storage bucket used for persistent stem storage. */
+/**
+ * Name of the Cache Storage bucket used by the Service Worker for persistent
+ * stem storage.  Referenced here so that {@link hasInOfflineCache} can read
+ * from the same bucket the SW writes to.
+ */
 export const CACHE_STORAGE_NAME = "bass-karaoke-stems-v1";
 
 /** LRU map: URL → compressed bytes. Insertion/access order = most-recent last. */
@@ -75,48 +84,39 @@ export function has(url: string): boolean {
 }
 
 /**
- * Fetch compressed audio bytes for *url*, consulting L1 then L2 before the
- * network.  Both cache layers are populated on a network fetch.
+ * Fetch compressed audio bytes for *url*, checking L1 before the network.
+ * The Service Worker (if registered) intercepts the network fetch and serves
+ * from its persistent offline cache when available, so the call is fast even
+ * on a subsequent page load.
  *
- * Gracefully degrades to network-only when the Cache Storage API is
- * unavailable (e.g. non-secure contexts, test environments).
+ * Gracefully degrades to a plain network fetch when no SW is registered.
  */
 export async function fetchWithCache(url: string): Promise<ArrayBuffer> {
   // L1: in-memory
   const l1Hit = get(url);
   if (l1Hit !== undefined) return l1Hit;
 
-  // L2: Cache Storage (persistent across page reloads)
-  if (typeof caches !== "undefined") {
-    try {
-      const diskCache = await caches.open(CACHE_STORAGE_NAME);
-      const cached = await diskCache.match(url);
-      if (cached) {
-        const bytes = await cached.arrayBuffer();
-        set(url, bytes); // warm L1
-        return bytes;
-      }
-    } catch {
-      // Cache Storage unavailable; fall through to network.
-    }
-  }
-
-  // Network fetch – clone before consuming so the response body can be
-  // stored in Cache Storage independently of the ArrayBuffer we return.
+  // Network fetch – handled transparently by the SW offline cache when available.
   const response = await fetch(url);
-  const toCache = response.clone();
   const bytes = await response.arrayBuffer();
   set(url, bytes); // store in L1
-
-  // Store in L2 (best-effort; failures are silently ignored).
-  if (typeof caches !== "undefined") {
-    try {
-      const diskCache = await caches.open(CACHE_STORAGE_NAME);
-      await diskCache.put(url, toCache);
-    } catch {
-      // ignore
-    }
-  }
-
   return bytes;
+}
+
+/**
+ * Check whether *url* is available in the Service Worker's persistent offline
+ * cache (the {@link CACHE_STORAGE_NAME} Cache Storage bucket).
+ *
+ * Returns `false` gracefully when Cache Storage is unavailable (e.g. in
+ * non-secure contexts or test environments without a SW).
+ */
+export async function hasInOfflineCache(url: string): Promise<boolean> {
+  if (typeof caches === "undefined") return false;
+  try {
+    const stemCache = await caches.open(CACHE_STORAGE_NAME);
+    const match = await stemCache.match(url);
+    return match !== undefined;
+  } catch {
+    return false;
+  }
 }
