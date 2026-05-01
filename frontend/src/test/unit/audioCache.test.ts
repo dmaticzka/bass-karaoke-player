@@ -106,6 +106,34 @@ describe("audioCache", () => {
       expect(cache.size()).toBe(1);
     });
   });
+
+  describe("has", () => {
+    it("returns false for a missing key", () => {
+      expect(cache.has("nonexistent")).toBe(false);
+    });
+
+    it("returns true for a present key", () => {
+      cache.set("url1", new Uint8Array([1]).buffer);
+      expect(cache.has("url1")).toBe(true);
+    });
+
+    it("does not promote the entry to MRU position", () => {
+      // Fill cache to capacity; url0 is LRU.
+      for (let i = 0; i < cache.MAX_ENTRIES; i++) {
+        cache.set(`url${i}`, new Uint8Array([i]).buffer);
+      }
+      // has() on url0 must not promote it — adding one more entry should evict it.
+      cache.has("url0");
+      cache.set("newest", new Uint8Array([99]).buffer);
+      expect(cache.has("url0")).toBe(false);
+    });
+
+    it("returns false after clear()", () => {
+      cache.set("url1", new Uint8Array([1]).buffer);
+      cache.clear();
+      expect(cache.has("url1")).toBe(false);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

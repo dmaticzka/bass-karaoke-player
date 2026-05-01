@@ -69,6 +69,11 @@ export function size(): number {
   return cache.size;
 }
 
+/** Return true if *url* has a cached entry (without promoting it to MRU). */
+export function has(url: string): boolean {
+  return cache.has(url);
+}
+
 /**
  * Fetch compressed audio bytes for *url*, consulting L1 then L2 before the
  * network.  Both cache layers are populated on a network fetch.
