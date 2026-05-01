@@ -14,7 +14,7 @@ export function VersionsPicker({ onSelectVersion }: Props) {
   const setVersions = usePlayerStore((s) => s.setVersions);
   // Subscribe to isLoading so the component re-renders when stem loading completes
   // and the client-cache indicator reflects the updated audioCache state.
-  const _isLoading = usePlayerStore((s) => s.isLoading);
+  usePlayerStore((s) => s.isLoading);
 
   const handleDelete = async (ver: Version) => {
     if (!activeSong) return;
