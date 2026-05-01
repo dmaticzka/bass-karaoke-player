@@ -31,6 +31,9 @@ export function VersionsPicker({ onSelectVersion }: Props) {
 
     let cancelled = false;
 
+    // Capture in a const so TypeScript knows it's non-null inside the async function.
+    const song = activeSong;
+
     async function checkOfflineCache() {
       const newCached = new Set<string>();
       await Promise.all(
@@ -38,15 +41,15 @@ export function VersionsPicker({ onSelectVersion }: Props) {
           const useProcessed =
             ver.pitch_semitones !== 0 || ver.tempo_ratio !== 1.0;
           const stemResults = await Promise.all(
-            activeSong.stems.map((stem) => {
+            song.stems.map((stem) => {
               const url = useProcessed
                 ? api.processedStemUrl(
-                    activeSong.id,
+                    song.id,
                     stem,
                     ver.pitch_semitones,
                     ver.tempo_ratio,
                   )
-                : api.stemUrl(activeSong.id, stem);
+                : api.stemUrl(song.id, stem);
               return audioCache.hasInOfflineCache(url);
             }),
           );
