@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import * as cache from "../../audio/audioCache";
 
 beforeEach(() => {
   cache.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("audioCache", () => {
@@ -99,6 +104,141 @@ describe("audioCache", () => {
       cache.set("url1", new Uint8Array([1]).buffer);
       cache.set("url1", new Uint8Array([2]).buffer);
       expect(cache.size()).toBe(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Build a minimal CacheStorage stub backed by an in-memory map. */
+function makeMockCaches() {
+  const store = new Map<string, Map<string, ArrayBuffer>>();
+  return {
+    open: vi.fn(async (name: string) => {
+      if (!store.has(name)) store.set(name, new Map());
+      const bucket = store.get(name)!;
+      return {
+        match: vi.fn(async (req: RequestInfo | URL) => {
+          const key = typeof req === "string" ? req : (req as Request).url;
+          const bytes = bucket.get(key);
+          if (!bytes) return undefined;
+          return new Response(bytes);
+        }),
+        put: vi.fn(async (req: RequestInfo | URL, resp: Response) => {
+          const key = typeof req === "string" ? req : (req as Request).url;
+          bucket.set(key, await resp.arrayBuffer());
+        }),
+      };
+    }),
+    store,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// fetchWithCache
+// ---------------------------------------------------------------------------
+
+describe("fetchWithCache", () => {
+  describe("L1 hit", () => {
+    it("returns bytes from L1 without touching network or Cache Storage", async () => {
+      cache.set("http://x/stem", new Uint8Array([1, 2, 3]).buffer);
+      const mockFetch = vi.fn();
+      vi.stubGlobal("fetch", mockFetch);
+
+      const result = await cache.fetchWithCache("http://x/stem");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([1, 2, 3]));
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("L2 hit (Cache Storage)", () => {
+    it("returns bytes from L2, warms L1, and skips network", async () => {
+      const mockFetch = vi.fn();
+      vi.stubGlobal("fetch", mockFetch);
+
+      const mockCaches = makeMockCaches();
+      vi.stubGlobal("caches", mockCaches);
+
+      // Pre-populate Cache Storage
+      const diskCache = await mockCaches.open(cache.CACHE_STORAGE_NAME);
+      await diskCache.put("http://x/stem2", new Response(new Uint8Array([7, 8, 9]).buffer));
+
+      const result = await cache.fetchWithCache("http://x/stem2");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([7, 8, 9]));
+      expect(mockFetch).not.toHaveBeenCalled();
+      // L1 should now be warm
+      expect(cache.size()).toBe(1);
+      expect(new Uint8Array(cache.get("http://x/stem2")!)).toEqual(
+        new Uint8Array([7, 8, 9]),
+      );
+    });
+  });
+
+  describe("network fetch", () => {
+    it("fetches from network and populates L1 when both caches miss", async () => {
+      const bytes = new Uint8Array([10, 20, 30]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+      vi.stubGlobal("caches", undefined);
+
+      const result = await cache.fetchWithCache("http://x/stem3");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([10, 20, 30]));
+      expect(cache.size()).toBe(1);
+    });
+
+    it("stores response in both L1 and L2 on network fetch", async () => {
+      const mockCaches = makeMockCaches();
+      vi.stubGlobal("caches", mockCaches);
+
+      const bytes = new Uint8Array([4, 5, 6]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      await cache.fetchWithCache("http://x/stem4");
+
+      // L1 populated
+      expect(cache.size()).toBe(1);
+      // L2 populated: a second call should hit L1, but we can verify L2 via a
+      // fresh call after clearing L1
+      cache.clear();
+      const mockFetch = vi.fn();
+      vi.stubGlobal("fetch", mockFetch);
+      const result2 = await cache.fetchWithCache("http://x/stem4");
+      expect(new Uint8Array(result2)).toEqual(new Uint8Array([4, 5, 6]));
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("falls back gracefully when Cache Storage is unavailable", async () => {
+      vi.stubGlobal("caches", undefined);
+      const bytes = new Uint8Array([99]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      const result = await cache.fetchWithCache("http://x/stem5");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([99]));
+      expect(cache.size()).toBe(1);
+    });
+
+    it("falls back gracefully when Cache Storage throws", async () => {
+      vi.stubGlobal("caches", {
+        open: vi.fn().mockRejectedValue(new Error("quota exceeded")),
+      });
+      const bytes = new Uint8Array([55]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      const result = await cache.fetchWithCache("http://x/stem6");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([55]));
     });
   });
 });

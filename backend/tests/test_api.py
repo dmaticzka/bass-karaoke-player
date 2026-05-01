@@ -301,6 +301,19 @@ class TestGetStem:
         resp = client.get("/api/songs/ready-song/stems/bass")
         assert resp.status_code == 404
 
+    def test_get_stem_cache_control_header(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        import backend.app.main as main_module
+
+        song = self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/stems/vocals")
+        assert resp.status_code == 200
+        cc = resp.headers.get("cache-control", "")
+        assert "public" in cc
+        assert "immutable" in cc
+
 
 # ---------------------------------------------------------------------------
 # Process stem
@@ -980,6 +993,26 @@ class TestGetProcessedStem:
         resp = client.get("/api/songs/gps-song/stems/vocals/processed")
         assert resp.status_code == 500
         assert resp.json()["detail"] == "Audio processing failed"
+
+    def test_get_processed_stem_cache_control_header(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Processed stem responses must include Cache-Control: immutable."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+
+        out_path = storage.processed_path("gps-song", StemName.VOCALS, 0.0, 1.0)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        resp = client.get("/api/songs/gps-song/stems/vocals/processed")
+        assert resp.status_code == 200
+        cc = resp.headers.get("cache-control", "")
+        assert "public" in cc
+        assert "immutable" in cc
 
 
 # ---------------------------------------------------------------------------
