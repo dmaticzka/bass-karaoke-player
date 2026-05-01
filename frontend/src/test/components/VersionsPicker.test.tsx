@@ -2,12 +2,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { VersionsPicker } from "../../components/VersionsPicker";
 import { usePlayerStore } from "../../store/playerStore";
-import type { Version } from "../../types";
+import type { StemName, Version } from "../../types";
+
+vi.mock("../../audio/audioCache", () => ({
+  has: vi.fn().mockReturnValue(false),
+}));
 
 vi.mock("../../api/client", () => ({
   api: {
     deleteVersion: vi.fn().mockResolvedValue(undefined),
     getVersions: vi.fn().mockResolvedValue({ versions: [] }),
+    stemUrl: vi.fn().mockImplementation((_id: string, stem: string) => `/api/songs/s1/stems/${stem}`),
+    processedStemUrl: vi.fn().mockImplementation(
+      (_id: string, stem: string, pitch: number, tempo: number) =>
+        `/api/songs/s1/stems/${stem}/processed?pitch=${pitch}&tempo=${tempo}`,
+    ),
   },
 }));
 
@@ -148,5 +157,81 @@ describe("VersionsPicker", () => {
       fireEvent.click(deleteBtn);
     });
     expect(onSelectVersion).not.toHaveBeenCalled();
+  });
+
+  describe("client-cache indicator (version-cached class)", () => {
+    const STEMS: StemName[] = ["bass", "drums", "vocals", "other"];
+
+    function resetStoreWithStems(
+      versions: Version[],
+      activePitch = 0,
+      activeTempo = 1.0,
+    ) {
+      usePlayerStore.setState({
+        versions,
+        activeVersion: { pitch: activePitch, tempo: activeTempo },
+        activeSong: {
+          id: "s1",
+          filename: "test.mp3",
+          artist: null,
+          title: null,
+          status: "ready",
+          stems: STEMS,
+        },
+      });
+    }
+
+    it("adds version-cached class when all stems are in the client cache", async () => {
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.has).mockReturnValue(true);
+      resetStoreWithStems([defaultVersion]);
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
+    });
+
+    it("does not add version-cached class when stems are not in the client cache", async () => {
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.has).mockReturnValue(false);
+      resetStoreWithStems([defaultVersion]);
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
+    });
+
+    it("uses processedStemUrl for non-default versions", async () => {
+      const { api } = await import("../../api/client");
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.has).mockReturnValue(true);
+      resetStoreWithStems([customVersion]);
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(vi.mocked(api.processedStemUrl)).toHaveBeenCalled();
+      expect(vi.mocked(api.stemUrl)).not.toHaveBeenCalled();
+    });
+
+    it("uses stemUrl for the default version", async () => {
+      const { api } = await import("../../api/client");
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.has).mockReturnValue(true);
+      resetStoreWithStems([defaultVersion]);
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(vi.mocked(api.stemUrl)).toHaveBeenCalled();
+      expect(vi.mocked(api.processedStemUrl)).not.toHaveBeenCalled();
+    });
+
+    it("does not add version-cached class when activeSong has no stems", () => {
+      usePlayerStore.setState({
+        versions: [defaultVersion],
+        activeVersion: { pitch: 0, tempo: 1.0 },
+        activeSong: {
+          id: "s1",
+          filename: "test.mp3",
+          artist: null,
+          title: null,
+          status: "ready",
+          stems: [],
+        },
+      });
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
+    });
   });
 });

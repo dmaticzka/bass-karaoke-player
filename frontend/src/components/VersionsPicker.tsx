@@ -1,5 +1,6 @@
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
+import * as audioCache from "../audio/audioCache";
 import type { Version } from "../types";
 
 interface Props {
@@ -11,6 +12,9 @@ export function VersionsPicker({ onSelectVersion }: Props) {
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const activeSong = usePlayerStore((s) => s.activeSong);
   const setVersions = usePlayerStore((s) => s.setVersions);
+  // Subscribe to isLoading so the component re-renders when stem loading completes
+  // and the client-cache indicator reflects the updated audioCache state.
+  const _isLoading = usePlayerStore((s) => s.isLoading);
 
   const handleDelete = async (ver: Version) => {
     if (!activeSong) return;
@@ -51,7 +55,16 @@ export function VersionsPicker({ onSelectVersion }: Props) {
             activeVersion.pitch === ver.pitch_semitones &&
             activeVersion.tempo === ver.tempo_ratio;
           const clickable = ver.status !== "processing";
-          const isCached = ver.status === "ready";
+          const useProcessed = ver.pitch_semitones !== 0 || ver.tempo_ratio !== 1.0;
+          const isClientCached =
+            activeSong !== null &&
+            activeSong.stems.length > 0 &&
+            activeSong.stems.every((stem) => {
+              const url = useProcessed
+                ? api.processedStemUrl(activeSong.id, stem, ver.pitch_semitones, ver.tempo_ratio)
+                : api.stemUrl(activeSong.id, stem);
+              return audioCache.has(url);
+            });
 
           return (
             <li
@@ -60,7 +73,7 @@ export function VersionsPicker({ onSelectVersion }: Props) {
                 "version-item",
                 ver.is_default ? "default-version" : "",
                 isActive ? "active" : "",
-                isCached ? "version-cached" : "",
+                isClientCached ? "version-cached" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
