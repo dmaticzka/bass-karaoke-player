@@ -22,14 +22,26 @@ const STEMS_CACHE = "bass-karaoke-stems-v1";
 const KNOWN_CACHES = [SHELL_CACHE, STEMS_CACHE];
 
 // ---------------------------------------------------------------------------
-// Install – open both caches eagerly; skip waiting to activate immediately
+// Install – pre-cache the app shell entry point and open both buckets eagerly;
+// skip waiting to activate immediately.
 // ---------------------------------------------------------------------------
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    Promise.all([caches.open(SHELL_CACHE), caches.open(STEMS_CACHE)]).then(
-      () => self.skipWaiting(),
-    ),
+    Promise.all([
+      caches.open(SHELL_CACHE).then((cache) =>
+        // Pre-cache the HTML entry point so the app shell is available offline
+        // from the very first service-worker installation.  Ignore failures
+        // (e.g. the network is unavailable at install time) and fall back to
+        // the lazy cache-first strategy on the next page load.
+        cache.add("/").catch((err) => {
+          // Network may be unavailable during install; the lazy cache-first
+          // strategy will cache the shell on the next successful page load.
+          console.warn("[SW] Pre-cache of '/' failed:", err);
+        }),
+      ),
+      caches.open(STEMS_CACHE),
+    ]).then(() => self.skipWaiting()),
   );
 });
 
@@ -70,7 +82,7 @@ self.addEventListener("fetch", (event) => {
   // Stem and processed-stem audio – cache-first (immutable binary blobs).
   // Matches /api/songs/{id}/stems/{stem} and …/stems/{stem}/processed
   if (pathname.startsWith("/api/") && pathname.includes("/stems/")) {
-    event.respondWith(cacheFirst(request, STEMS_CACHE));
+    event.respondWith(cacheFirst(event, request, STEMS_CACHE));
     return;
   }
 
@@ -79,13 +91,13 @@ self.addEventListener("fetch", (event) => {
     pathname === "/api/songs" ||
     (pathname.startsWith("/api/songs/") && pathname.endsWith("/versions"))
   ) {
-    event.respondWith(networkFirst(request, SHELL_CACHE));
+    event.respondWith(networkFirst(event, request, SHELL_CACHE));
     return;
   }
 
   // Remaining API endpoints (song metadata, config) – stale-while-revalidate.
   if (pathname.startsWith("/api/")) {
-    event.respondWith(staleWhileRevalidate(request, SHELL_CACHE));
+    event.respondWith(staleWhileRevalidate(event, request, SHELL_CACHE));
     return;
   }
 
@@ -97,7 +109,7 @@ self.addEventListener("fetch", (event) => {
     pathname === "/icon.svg" ||
     pathname === "/sw.js"
   ) {
-    event.respondWith(cacheFirst(request, SHELL_CACHE));
+    event.respondWith(cacheFirst(event, request, SHELL_CACHE));
     return;
   }
 
@@ -109,14 +121,15 @@ self.addEventListener("fetch", (event) => {
 // ---------------------------------------------------------------------------
 
 /** Cache-first: serve from *cacheName*; populate cache on network hit. */
-async function cacheFirst(request, cacheName) {
+async function cacheFirst(event, request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
 
   const response = await fetch(request);
   if (response.ok) {
-    cache.put(request, response.clone());
+    // Use event.waitUntil so the SW stays alive until the write completes.
+    event.waitUntil(cache.put(request, response.clone()));
   }
   return response;
 }
@@ -125,12 +138,12 @@ async function cacheFirst(request, cacheName) {
  * Network-first: try the network; on failure serve the stale cached copy.
  * Throws if both the network and cache miss.
  */
-async function networkFirst(request, cacheName) {
+async function networkFirst(event, request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
     if (response.ok) {
-      cache.put(request, response.clone());
+      event.waitUntil(cache.put(request, response.clone()));
     }
     return response;
   } catch {
@@ -148,13 +161,13 @@ async function networkFirst(request, cacheName) {
  * fetching a fresh copy in the background to update the cache.
  * Falls back to the network response when there is no cached entry yet.
  */
-async function staleWhileRevalidate(request, cacheName) {
+async function staleWhileRevalidate(event, request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
 
   const fetchPromise = fetch(request).then((response) => {
     if (response.ok) {
-      cache.put(request, response.clone());
+      event.waitUntil(cache.put(request, response.clone()));
     }
     return response;
   });

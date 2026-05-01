@@ -269,6 +269,60 @@ describe("App", () => {
     ).resolves.not.toThrow();
   });
 
+  describe("offline banner", () => {
+    it("does not show the offline banner when online", async () => {
+      await act(async () => {
+        render(<App />);
+      });
+      expect(screen.queryByText(/You are offline/)).not.toBeInTheDocument();
+    });
+
+    it("shows the offline banner when navigator.onLine is false at startup", async () => {
+      vi.stubGlobal("navigator", { ...window.navigator, onLine: false });
+      await act(async () => {
+        render(<App />);
+      });
+      expect(screen.getByText(/You are offline/)).toBeInTheDocument();
+    });
+
+    it("shows the offline banner when the offline event fires", async () => {
+      await act(async () => {
+        render(<App />);
+      });
+      expect(screen.queryByText(/You are offline/)).not.toBeInTheDocument();
+
+      await act(async () => {
+        window.dispatchEvent(new Event("offline"));
+      });
+
+      expect(screen.getByText(/You are offline/)).toBeInTheDocument();
+    });
+
+    it("hides the offline banner when the online event fires after going offline", async () => {
+      vi.stubGlobal("navigator", { ...window.navigator, onLine: false });
+      await act(async () => {
+        render(<App />);
+      });
+      expect(screen.getByText(/You are offline/)).toBeInTheDocument();
+
+      await act(async () => {
+        window.dispatchEvent(new Event("online"));
+      });
+
+      expect(screen.queryByText(/You are offline/)).not.toBeInTheDocument();
+    });
+
+    it("offline banner has the correct accessibility attributes", async () => {
+      vi.stubGlobal("navigator", { ...window.navigator, onLine: false });
+      await act(async () => {
+        render(<App />);
+      });
+      const banner = screen.getByText(/You are offline/).closest("[role='status']");
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveAttribute("aria-live", "polite");
+    });
+  });
+
   it("MiniPlayer navigate button switches to player tab", async () => {
     vi.mocked(api.getSongs).mockResolvedValue({ songs: [readySong] });
     usePlayerStore.setState({ activeSong: readySong, activeTab: "library" });

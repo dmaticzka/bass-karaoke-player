@@ -211,6 +211,67 @@ describe("fetchWithCache", () => {
       expect(mockFetch2).not.toHaveBeenCalled();
     });
   });
+
+  describe("Cache Storage write-through", () => {
+    it("writes fetched bytes to Cache Storage so hasInOfflineCache returns true immediately", async () => {
+      const mockCaches = makeMockCaches();
+      vi.stubGlobal("caches", mockCaches);
+      const bytes = new Uint8Array([7, 8, 9]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      await cache.fetchWithCache("http://x/stem-wt");
+
+      expect(await cache.hasInOfflineCache("http://x/stem-wt")).toBe(true);
+    });
+
+    it("the written Cache Storage entry contains the correct bytes", async () => {
+      const mockCaches = makeMockCaches();
+      vi.stubGlobal("caches", mockCaches);
+      const bytes = new Uint8Array([11, 22, 33]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      await cache.fetchWithCache("http://x/stem-bytes");
+
+      const bucket = mockCaches.store.get(cache.CACHE_STORAGE_NAME)!;
+      const stored = bucket.get("http://x/stem-bytes");
+      expect(stored).toBeDefined();
+      expect(new Uint8Array(stored!)).toEqual(new Uint8Array([11, 22, 33]));
+    });
+
+    it("silently ignores Cache Storage errors during write-through", async () => {
+      vi.stubGlobal("caches", {
+        open: vi.fn().mockRejectedValue(new Error("quota exceeded")),
+      });
+      const bytes = new Uint8Array([1, 2]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      // Must not throw even if Cache Storage is unavailable
+      const result = await cache.fetchWithCache("http://x/stem-err");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([1, 2]));
+    });
+
+    it("skips Cache Storage write when caches global is unavailable", async () => {
+      vi.stubGlobal("caches", undefined);
+      const bytes = new Uint8Array([3, 4]).buffer;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(bytes.slice(0))),
+      );
+
+      // Must not throw when caches is undefined
+      const result = await cache.fetchWithCache("http://x/stem-no-caches");
+      expect(new Uint8Array(result)).toEqual(new Uint8Array([3, 4]));
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -89,6 +89,12 @@ export function has(url: string): boolean {
  * from its persistent offline cache when available, so the call is fast even
  * on a subsequent page load.
  *
+ * After a successful network fetch the bytes are also written directly to the
+ * {@link CACHE_STORAGE_NAME} Cache Storage bucket.  This write-through ensures
+ * that {@link hasInOfflineCache} returns `true` immediately after this function
+ * resolves – without relying on the Service Worker's asynchronous cache.put()
+ * completing before the caller checks offline availability.
+ *
  * Gracefully degrades to a plain network fetch when no SW is registered.
  */
 export async function fetchWithCache(url: string): Promise<ArrayBuffer> {
@@ -96,10 +102,24 @@ export async function fetchWithCache(url: string): Promise<ArrayBuffer> {
   const l1Hit = get(url);
   if (l1Hit !== undefined) return l1Hit;
 
-  // Network fetch – handled transparently by the SW offline cache when available.
+  // Network fetch – the SW serves from its offline cache when available.
   const response = await fetch(url);
   const bytes = await response.arrayBuffer();
   set(url, bytes); // store in L1
+
+  // Write to Cache Storage so hasInOfflineCache returns true immediately after
+  // this function resolves.  The SW also writes to the same bucket, but that
+  // write is asynchronous (no event.waitUntil guarantee) and may complete after
+  // the caller checks the offline indicator.
+  if (typeof caches !== "undefined") {
+    try {
+      const stemCache = await caches.open(CACHE_STORAGE_NAME);
+      await stemCache.put(url, new Response(bytes.slice(0)));
+    } catch {
+      // Ignore storage errors (quota exceeded, unavailable, etc.)
+    }
+  }
+
   return bytes;
 }
 
