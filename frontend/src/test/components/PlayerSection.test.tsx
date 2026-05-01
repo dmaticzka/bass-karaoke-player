@@ -70,6 +70,7 @@ vi.mock("../../audio/audioCache", () => ({
   set: vi.fn(),
   clear: vi.fn(),
   size: vi.fn(() => 0),
+  has: vi.fn(() => false),
   MAX_ENTRIES: 20,
 }));
 

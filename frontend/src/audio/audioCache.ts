@@ -57,3 +57,8 @@ export function clear(): void {
 export function size(): number {
   return cache.size;
 }
+
+/** Return true if *url* has a cached entry (without promoting it to MRU). */
+export function has(url: string): boolean {
+  return cache.has(url);
+}
