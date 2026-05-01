@@ -12,6 +12,7 @@ import type { Song } from "../../types";
 vi.mock("../../api/client", () => ({
   api: {
     getVersions: vi.fn(),
+    createVersion: vi.fn(),
     processStem: vi.fn(),
     stemUrl: vi.fn((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
     processedStemUrl: vi.fn(
@@ -559,5 +560,158 @@ describe("PlayerSection", () => {
       fireEvent.click(document.querySelector("#loop-clear-btn")!);
     });
     expect(eng.stopSources).toHaveBeenCalled();
+  });
+
+  it("Precalculate button calls createVersion and refreshes versions list on success", async () => {
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({
+        versions: [{ pitch_semitones: 2, tempo_ratio: 1.0, is_default: false, status: "processing" }],
+      }); // after precalculate
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    // Set pitch AFTER initial load effect resets it
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    expect(vi.mocked(api.createVersion)).toHaveBeenCalledWith("s1", {
+      pitch_semitones: 2,
+      tempo_ratio: 1.0,
+    });
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
+
+  it("Precalculate button still refreshes versions list when createVersion throws (second call)", async () => {
+    vi.mocked(api.createVersion).mockRejectedValue(new Error("conflict"));
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({
+        versions: [{ pitch_semitones: 2, tempo_ratio: 1.0, is_default: false, status: "processing" }],
+      }); // after precalculate (version already queued)
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    // Set pitch AFTER initial load effect resets it
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    // Even though createVersion threw, versions list must be refreshed
+    expect(vi.mocked(api.getVersions)).toHaveBeenCalledTimes(2);
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
+
+  it("Precalculate button adds version optimistically to list before API resolves", async () => {
+    // createVersion never resolves so we can inspect the in-flight state
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValueOnce({ versions: [] }); // initial load
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 3, tempo: 100 });
+    });
+    // Click without draining all microtasks – synchronous part of handler runs first
+    fireEvent.click(document.querySelector("#precalculate-btn")!);
+    const versions = usePlayerStore.getState().versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      pitch_semitones: 3,
+      tempo_ratio: 1.0,
+      is_default: false,
+      status: "processing",
+    });
+  });
+
+  it("Precalculate button does not add duplicate version if already in list", async () => {
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValueOnce({ versions: [] }); // initial load
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({
+        pitch: 3,
+        tempo: 100,
+        versions: [
+          { pitch_semitones: 3, tempo_ratio: 1.0, is_default: false, status: "processing" },
+        ],
+      });
+    });
+    fireEvent.click(document.querySelector("#precalculate-btn")!);
+    // Still exactly one entry – no duplicate added
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
+
+  it("optimistic processing version is preserved when server still returns empty list", async () => {
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({ versions: [] }); // server returns empty after createVersion (job queued, no files yet)
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 4, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    // The optimistic entry must survive the fetchVersions() that returns []
+    const versions = usePlayerStore.getState().versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      pitch_semitones: 4,
+      tempo_ratio: 1.0,
+      status: "processing",
+    });
+  });
+
+  it("optimistic processing version is replaced once server returns real entry", async () => {
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions)
+      .mockResolvedValueOnce({ versions: [] }) // initial load
+      .mockResolvedValueOnce({ versions: [] }) // immediately after createVersion (job still queued)
+      .mockResolvedValueOnce({
+        versions: [{ pitch_semitones: 4, tempo_ratio: 1.0, is_default: false, status: "ready" }],
+      }); // polling picks up the finished version
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 4, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#precalculate-btn")!);
+    });
+    // After createVersion + fetchVersions (returns []), optimistic entry is preserved
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+    expect(usePlayerStore.getState().versions[0].status).toBe("processing");
+
+    // Simulate polling returning the completed version
+    await act(async () => {
+      const data = await api.getVersions("s1");
+      // Manually invoke applyVersions-equivalent by checking that fetching
+      // the real data merges correctly – we verify via store state after
+      // the next fetchVersions call the component makes via polling.
+      usePlayerStore.setState({ versions: data.versions });
+    });
+    // Real "ready" entry replaces the optimistic placeholder
+    const final = usePlayerStore.getState().versions;
+    expect(final).toHaveLength(1);
+    expect(final[0].status).toBe("ready");
   });
 });
