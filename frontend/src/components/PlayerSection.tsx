@@ -96,8 +96,24 @@ export function PlayerSection() {
   };
 
   const applyVersions = (versions: Version[]) => {
-    setVersions(versions);
-    const hasProcessing = versions.some(
+    // Preserve any optimistic "processing" entries that the server doesn't know
+    // about yet (no files on disk → not returned by list_versions).  Once the
+    // server finishes processing and polling returns the real entry, those
+    // entries will be present in `versions` and the optimistic placeholder is
+    // naturally replaced.
+    const existing = usePlayerStore.getState().versions;
+    const optimisticOnly = existing.filter(
+      (ev) =>
+        ev.status === "processing" &&
+        !versions.some(
+          (sv) =>
+            sv.pitch_semitones === ev.pitch_semitones &&
+            sv.tempo_ratio === ev.tempo_ratio,
+        ),
+    );
+    const merged = [...versions, ...optimisticOnly];
+    setVersions(merged);
+    const hasProcessing = merged.some(
       (v) => v.status === "processing" || v.status === "partial",
     );
     if (hasProcessing) startVersionPolling();
@@ -411,15 +427,36 @@ export function PlayerSection() {
     const pitchSemitones = pitch;
     const tempoRatio = tempo / 100;
     setIsPrecalculating(true);
+
+    // Optimistically add the version to the list immediately so it is visible
+    // in the UI before the server has written any processed files to disk.
+    const currentVersions = usePlayerStore.getState().versions;
+    if (
+      !currentVersions.some(
+        (v) => v.pitch_semitones === pitchSemitones && v.tempo_ratio === tempoRatio,
+      )
+    ) {
+      setVersions([
+        ...currentVersions,
+        {
+          pitch_semitones: pitchSemitones,
+          tempo_ratio: tempoRatio,
+          is_default: false,
+          status: "processing",
+        },
+      ]);
+    }
+    startVersionPolling();
+
     try {
       await api.createVersion(activeSong.id, {
         pitch_semitones: pitchSemitones,
         tempo_ratio: tempoRatio,
       });
-      await fetchVersions();
     } catch (e) {
       console.error("Precalculate failed:", e);
     } finally {
+      await fetchVersions();
       setIsPrecalculating(false);
     }
   };
