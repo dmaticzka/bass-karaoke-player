@@ -3,6 +3,8 @@ import { render, screen, act, fireEvent } from "@testing-library/react";
 import { PlayerSection } from "../../components/PlayerSection";
 import { usePlayerStore } from "../../store/playerStore";
 import { api } from "../../api/client";
+import * as audioCache from "../../audio/audioCache";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import type { Song } from "../../types";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +71,11 @@ vi.mock("../../audio/audioCache", () => ({
   CACHE_STORAGE_NAME: "bass-karaoke-stems-v1",
   fetchWithCache: vi.fn(() => Promise.resolve(new ArrayBuffer(0))),
   hasCached: vi.fn(() => Promise.resolve(false)),
+}));
+
+// Default to online so all existing tests are unaffected.
+vi.mock("../../hooks/useOnlineStatus", () => ({
+  useOnlineStatus: vi.fn(() => true),
 }));
 
 // ---------------------------------------------------------------------------
@@ -710,5 +717,78 @@ describe("PlayerSection", () => {
     const final = usePlayerStore.getState().versions;
     expect(final).toHaveLength(1);
     expect(final[0].status).toBe("ready");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Offline stem loading (Change 1 + Change 2)
+  // ---------------------------------------------------------------------------
+
+  describe("offline stem loading", () => {
+    it("skips processStem POST and plays from SW cache when offline with all stems cached", async () => {
+      // Given: all processed stems already in the SW cache, and the device is offline.
+      vi.mocked(audioCache.hasCached).mockResolvedValue(true);
+      vi.mocked(useOnlineStatus).mockReturnValue(false);
+
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => {
+        render(<PlayerSection />);
+      });
+
+      // Clear mocks set during the initial load (pitch=0 → original stems, no POST).
+      vi.mocked(api.processStem).mockClear();
+      vi.mocked(audioCache.fetchWithCache).mockClear();
+
+      // Set a non-zero pitch so the modified-version branch is taken.
+      await act(async () => {
+        usePlayerStore.setState({ pitch: 2, tempo: 100 });
+      });
+      await act(async () => {
+        fireEvent.click(document.querySelector("#apply-btn")!);
+      });
+
+      // The server-side processing POST must NOT have been fired.
+      expect(vi.mocked(api.processStem)).not.toHaveBeenCalled();
+      // fetchWithCache MUST have been called with the processed (cached) stem URL.
+      expect(vi.mocked(audioCache.fetchWithCache)).toHaveBeenCalledWith(
+        expect.stringContaining("/processed?pitch=2"),
+      );
+      // Loading must complete without error.
+      expect(usePlayerStore.getState().isLoading).toBe(false);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("shows an offline error and aborts loading when offline with uncached modified stems", async () => {
+      // Given: processed stems are NOT in the cache, and the device is offline.
+      vi.mocked(audioCache.hasCached).mockResolvedValue(false); // explicit for clarity
+      vi.mocked(useOnlineStatus).mockReturnValue(false);
+
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => {
+        render(<PlayerSection />);
+      });
+
+      // Clear mocks set during the initial load (pitch=0 → original stems, no POST).
+      vi.mocked(api.processStem).mockClear();
+      vi.mocked(audioCache.fetchWithCache).mockClear();
+
+      // Set a non-zero pitch so the modified-version branch is taken.
+      await act(async () => {
+        usePlayerStore.setState({ pitch: 2, tempo: 100 });
+      });
+      await act(async () => {
+        fireEvent.click(document.querySelector("#apply-btn")!);
+      });
+
+      // The server-side processing POST must NOT have been attempted while offline.
+      expect(vi.mocked(api.processStem)).not.toHaveBeenCalled();
+      // No stem audio should have been fetched for this apply attempt.
+      expect(vi.mocked(audioCache.fetchWithCache)).not.toHaveBeenCalled();
+      // A user-visible error message must be rendered.
+      const alert = screen.getByRole("alert");
+      expect(alert).toBeInTheDocument();
+      expect(alert.textContent).toMatch(/not available offline/i);
+      // Loading indicator must be reset to false.
+      expect(usePlayerStore.getState().isLoading).toBe(false);
+    });
   });
 });

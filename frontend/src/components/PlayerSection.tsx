@@ -3,6 +3,7 @@ import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import * as eng from "../audio/engine";
 import * as audioCache from "../audio/audioCache";
+import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { GlobalControls } from "./GlobalControls";
 import { StemsStack } from "./StemsStack";
 import { PlaybackBar } from "./PlaybackBar";
@@ -67,6 +68,9 @@ export function PlayerSection() {
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
   const [isPrecalculating, setIsPrecalculating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const isOnline = useOnlineStatus();
 
   const versionPollRef = useRef<number | null>(null);
   const loadRequestRef = useRef(0);
@@ -156,18 +160,49 @@ export function PlayerSection() {
 
     const useProcessed = pitchSemitones !== 0 || tempoRatio !== 1;
 
+    // For modified versions decide the loading strategy upfront, before
+    // spawning per-stem fetches.
+    //
+    // • If all stems are already in the SW cache: skip the server-side
+    //   rubberband POST entirely and go straight to the cached GETs.
+    //   This makes previously-loaded modified versions available offline.
+    //
+    // • If stems are NOT cached and the device is offline: fail fast with
+    //   a user-friendly error instead of silently falling back to the
+    //   unmodified stem audio.
+    let skipProcessPost = false;
+    if (useProcessed) {
+      const processedUrls = activeSong.stems.map((stem) =>
+        api.processedStemUrl(activeSong.id, stem, pitchSemitones, tempoRatio),
+      );
+      const allCached = await audioCache.hasCached(processedUrls);
+
+      if (!allCached && !isOnline) {
+        throw new Error(
+          "This version is not available offline. Load it while connected to the internet first.",
+        );
+      }
+
+      skipProcessPost = allCached;
+    }
+
     const results = await Promise.all(
       activeSong.stems.map(async (stem) => {
         let url: string;
         if (useProcessed) {
-          try {
-            await api.processStem(activeSong.id, stem, {
-              pitch_semitones: pitchSemitones,
-              tempo_ratio: tempoRatio,
-            });
+          if (skipProcessPost) {
+            // All stems confirmed cached — skip the POST trigger entirely.
             url = api.processedStemUrl(activeSong.id, stem, pitchSemitones, tempoRatio);
-          } catch {
-            url = api.stemUrl(activeSong.id, stem);
+          } else {
+            try {
+              await api.processStem(activeSong.id, stem, {
+                pitch_semitones: pitchSemitones,
+                tempo_ratio: tempoRatio,
+              });
+              url = api.processedStemUrl(activeSong.id, stem, pitchSemitones, tempoRatio);
+            } catch {
+              url = api.stemUrl(activeSong.id, stem);
+            }
           }
         } else {
           url = api.stemUrl(activeSong.id, stem);
@@ -380,6 +415,7 @@ export function PlayerSection() {
     const requestId = beginLoadRequest();
     stopAll();
     setIsLoading(true);
+    setLoadError(null);
     try {
       const pitchSemitones = pitch;
       const tempoRatio = tempo / 100;
@@ -391,6 +427,9 @@ export function PlayerSection() {
       if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
     } catch (e) {
       console.error("Apply failed:", e);
+      if (requestId === loadRequestRef.current) {
+        setLoadError((e as Error).message ?? "Failed to load stems.");
+      }
     } finally {
       if (requestId === loadRequestRef.current) setIsLoading(false);
     }
@@ -471,9 +510,15 @@ export function PlayerSection() {
     setActiveVersion(vPitch, vTempo);
     if (activeSong) persistLastSelectedVersion(activeSong.id, vPitch, vTempo);
     setIsLoading(true);
+    setLoadError(null);
     try {
       await fetchAndDecodeStems(vPitch, vTempo);
       if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
+    } catch (e) {
+      console.error("Select version failed:", e);
+      if (requestId === loadRequestRef.current) {
+        setLoadError((e as Error).message ?? "Failed to load stems.");
+      }
     } finally {
       if (requestId === loadRequestRef.current) setIsLoading(false);
     }
@@ -525,6 +570,11 @@ export function PlayerSection() {
 
       try {
         await fetchAndDecodeStems(targetPitch, targetTempo);
+      } catch (e) {
+        console.error("Initial stem load failed:", e);
+        if (requestId === loadRequestRef.current) {
+          setLoadError((e as Error).message ?? "Failed to load stems.");
+        }
       } finally {
         if (requestId === loadRequestRef.current) setIsLoading(false);
       }
@@ -564,6 +614,12 @@ export function PlayerSection() {
         onPrecalculate={handlePrecalculate}
         isPrecalculating={isPrecalculating}
       />
+
+      {loadError && (
+        <p className="load-error" role="alert">
+          {loadError}
+        </p>
+      )}
 
       <VersionsPicker onSelectVersion={handleSelectVersion} />
 
