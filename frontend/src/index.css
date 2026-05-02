@@ -476,6 +476,15 @@ a:hover { text-decoration: underline; }
   gap: 0.65rem;
   position: relative;
 }
+/* Transport: play buttons + seek row — always stacked, visually separated from loop section */
+.playback-transport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
 .playback-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -546,8 +555,7 @@ a:hover { text-decoration: underline; }
 }
 
 @media (min-width: 600px) {
-  .playback-controls { flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .playback-buttons { flex: 0 0 auto; flex-wrap: nowrap; }
+  .playback-buttons { flex-wrap: nowrap; }
   .playback-buttons .btn { flex: 0 0 auto; }
   .seek-row { flex: 1; min-width: 200px; }
 }

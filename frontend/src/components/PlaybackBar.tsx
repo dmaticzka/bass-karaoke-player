@@ -128,6 +128,7 @@ export function PlaybackBar({
 
   return (
     <div className="playback-controls">
+      <div className="playback-transport">
       <div className="playback-buttons">
         <button
           className="btn btn-secondary"
@@ -203,6 +204,7 @@ export function PlaybackBar({
         <span id="time-display">
           {fmtTime(pos)} / {fmtTime(duration)}
         </span>
+      </div>
       </div>
 
       <div className="loop-controls" id="loop-controls">
