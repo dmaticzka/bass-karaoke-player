@@ -125,6 +125,16 @@ uv run ruff check backend/
 uv run ruff format --check backend/
 ```
 
+### Frontend tests
+
+```bash
+# Install frontend dependencies
+npm ci --prefix frontend
+
+# Run frontend tests
+npm test --prefix frontend
+```
+
 ### E2E tests
 
 The end-to-end tests use [Playwright](https://playwright.dev/) and require a built frontend and `ffmpeg` installed on the system.
