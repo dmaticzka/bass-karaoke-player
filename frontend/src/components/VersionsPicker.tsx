@@ -101,6 +101,7 @@ export function VersionsPicker({ onSelectVersion }: Props) {
                 ver.is_default ? "default-version" : "",
                 isActive ? "active" : "",
                 isClientCached ? "version-cached" : "",
+                ver.status === "processing" ? "status-processing" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -112,9 +113,9 @@ export function VersionsPicker({ onSelectVersion }: Props) {
 
               {!ver.is_default && (
                 <>
-                  {(ver.status === "processing" || ver.status === "partial") && (
-                    <span className={`version-status-badge status-${ver.status}`}>
-                      {ver.status === "processing" ? "⏳" : "partial"}
+                  {ver.status === "partial" && (
+                    <span className="version-status-badge status-partial">
+                      partial
                     </span>
                   )}
                   {ver.status !== "processing" && (

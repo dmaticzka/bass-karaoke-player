@@ -95,10 +95,10 @@ describe("VersionsPicker", () => {
     expect(onSelectVersion).toHaveBeenCalledWith(3, 0.9);
   });
 
-  it("shows processing badge for a version in processing state", () => {
+  it("pulses the version bubble for a version in processing state", () => {
     resetStore([processingVersion]);
     render(<VersionsPicker onSelectVersion={vi.fn()} />);
-    expect(document.querySelector(".status-processing")).toBeInTheDocument();
+    expect(document.querySelector(".version-item.status-processing")).toBeInTheDocument();
   });
 
   it("processing version is not clickable (no cursor:pointer)", () => {

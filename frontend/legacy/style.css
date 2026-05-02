@@ -401,9 +401,7 @@ footer {
   flex-shrink: 0;
 }
 
-.version-status-badge.status-processing {
-  background: #854d0e;
-  color: #fef9c3;
+.version-item.status-processing {
   animation: stem-pulse 1.2s ease-in-out infinite;
 }
 
