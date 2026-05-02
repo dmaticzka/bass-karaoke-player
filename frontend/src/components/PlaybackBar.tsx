@@ -10,6 +10,12 @@ interface Props {
   onLoopSetA: () => void;
   onLoopSetB: () => void;
   onLoopClear: () => void;
+  onLoopClearA: () => void;
+  onLoopClearB: () => void;
+  onLoopSetAValue: (val: number) => void;
+  onLoopSetBValue: (val: number) => void;
+  onLoopAdjustA: (delta: number) => void;
+  onLoopAdjustB: (delta: number) => void;
 }
 
 function SkipBackIcon({ seconds }: { seconds: number }) {
@@ -83,6 +89,8 @@ function fmtTime(secs: number): string {
   return `${m}:${s}`;
 }
 
+const AB_ADJUST_STEPS = [-10, -5, -1, 1, 5, 10] as const;
+
 export function PlaybackBar({
   onPlayPause,
   onStop,
@@ -92,6 +100,12 @@ export function PlaybackBar({
   onLoopSetA,
   onLoopSetB,
   onLoopClear,
+  onLoopClearA,
+  onLoopClearB,
+  onLoopSetAValue,
+  onLoopSetBValue,
+  onLoopAdjustA,
+  onLoopAdjustB,
 }: Props) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
@@ -102,6 +116,10 @@ export function PlaybackBar({
   const loopEnd = usePlayerStore((s) => s.loopEnd);
 
   const pos = Math.min(startOffset, duration || startOffset);
+
+  // Effective A/B values for display and slider positioning
+  const effectiveA = loopStart ?? 0;
+  const effectiveB = loopEnd ?? duration;
 
   const loopLabel =
     loopEnabled && loopStart !== null && loopEnd !== null
@@ -199,20 +217,38 @@ export function PlaybackBar({
         <button
           id="loop-a-btn"
           className="btn btn-sm btn-secondary"
-          title="Set loop start"
+          title="Set loop start to current position"
           disabled={!loopEnabled}
           onClick={onLoopSetA}
         >
           Set A
         </button>
         <button
+          id="loop-clear-a-btn"
+          className="btn btn-sm btn-secondary"
+          title="Reset loop start to beginning"
+          disabled={!loopEnabled}
+          onClick={onLoopClearA}
+        >
+          Clear A
+        </button>
+        <button
           id="loop-b-btn"
           className="btn btn-sm btn-secondary"
-          title="Set loop end"
+          title="Set loop end to current position"
           disabled={!loopEnabled}
           onClick={onLoopSetB}
         >
           Set B
+        </button>
+        <button
+          id="loop-clear-b-btn"
+          className="btn btn-sm btn-secondary"
+          title="Reset loop end to song end"
+          disabled={!loopEnabled}
+          onClick={onLoopClearB}
+        >
+          Clear B
         </button>
         <button
           id="loop-clear-btn"
@@ -228,6 +264,90 @@ export function PlaybackBar({
             {loopLabel}
           </span>
         )}
+      </div>
+
+      {/* A point slider row */}
+      <div className="ab-point-row" id="loop-a-row">
+        <span className="ab-point-label">A</span>
+        {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
+          <button
+            key={delta}
+            className="btn btn-xs btn-secondary ab-adjust-btn"
+            title={`Move A point ${delta}s`}
+            aria-label={`Move A point ${delta} seconds`}
+            disabled={!loopEnabled}
+            onClick={() => onLoopAdjustA(delta)}
+          >
+            {delta}s
+          </button>
+        ))}
+        <input
+          id="loop-a-slider"
+          type="range"
+          className="ab-point-slider"
+          min={0}
+          max={duration || 100}
+          step={0.1}
+          value={effectiveA}
+          disabled={!loopEnabled}
+          onChange={(e) => onLoopSetAValue(Number(e.target.value))}
+          aria-label="Loop start (A point)"
+        />
+        <span className="ab-point-time">{fmtTime(effectiveA)}</span>
+        {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
+          <button
+            key={delta}
+            className="btn btn-xs btn-secondary ab-adjust-btn"
+            title={`Move A point +${delta}s`}
+            aria-label={`Move A point +${delta} seconds`}
+            disabled={!loopEnabled}
+            onClick={() => onLoopAdjustA(delta)}
+          >
+            +{delta}s
+          </button>
+        ))}
+      </div>
+
+      {/* B point slider row */}
+      <div className="ab-point-row" id="loop-b-row">
+        <span className="ab-point-label">B</span>
+        {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
+          <button
+            key={delta}
+            className="btn btn-xs btn-secondary ab-adjust-btn"
+            title={`Move B point ${delta}s`}
+            aria-label={`Move B point ${delta} seconds`}
+            disabled={!loopEnabled}
+            onClick={() => onLoopAdjustB(delta)}
+          >
+            {delta}s
+          </button>
+        ))}
+        <input
+          id="loop-b-slider"
+          type="range"
+          className="ab-point-slider"
+          min={0}
+          max={duration || 100}
+          step={0.1}
+          value={effectiveB}
+          disabled={!loopEnabled}
+          onChange={(e) => onLoopSetBValue(Number(e.target.value))}
+          aria-label="Loop end (B point)"
+        />
+        <span className="ab-point-time">{fmtTime(effectiveB)}</span>
+        {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
+          <button
+            key={delta}
+            className="btn btn-xs btn-secondary ab-adjust-btn"
+            title={`Move B point +${delta}s`}
+            aria-label={`Move B point +${delta} seconds`}
+            disabled={!loopEnabled}
+            onClick={() => onLoopAdjustB(delta)}
+          >
+            +{delta}s
+          </button>
+        ))}
       </div>
 
       {/* A-B loop indicator on seek slider */}

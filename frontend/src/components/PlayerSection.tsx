@@ -405,6 +405,60 @@ export function PlayerSection() {
     }
   };
 
+  const handleLoopClearA = () => {
+    setLoopStart(0);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(0);
+    }
+  };
+
+  const handleLoopClearB = () => {
+    setLoopEnd(duration);
+    if (isPlaying) {
+      const offset = Math.min(startOffset, duration);
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(offset);
+    }
+  };
+
+  const handleLoopSetAValue = (val: number) => {
+    const s = usePlayerStore.getState();
+    const newStart = Math.max(0, Math.min(val, s.loopEnd ?? s.duration));
+    setLoopStart(newStart);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(newStart);
+    }
+  };
+
+  const handleLoopSetBValue = (val: number) => {
+    const s = usePlayerStore.getState();
+    const newEnd = Math.max(s.loopStart ?? 0, Math.min(val, s.duration));
+    setLoopEnd(newEnd);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      const offset = Math.min(startOffset, newEnd);
+      playAll(offset);
+    }
+  };
+
+  const handleLoopAdjustA = (delta: number) => {
+    const s = usePlayerStore.getState();
+    const current = s.loopStart ?? 0;
+    handleLoopSetAValue(current + delta);
+  };
+
+  const handleLoopAdjustB = (delta: number) => {
+    const s = usePlayerStore.getState();
+    const current = s.loopEnd ?? s.duration;
+    handleLoopSetBValue(current + delta);
+  };
+
   // -----------------------------------------------------------------------
   // Global controls (pitch/tempo)
   // -----------------------------------------------------------------------
@@ -653,6 +707,12 @@ export function PlayerSection() {
         onLoopSetA={handleLoopSetA}
         onLoopSetB={handleLoopSetB}
         onLoopClear={handleLoopClear}
+        onLoopClearA={handleLoopClearA}
+        onLoopClearB={handleLoopClearB}
+        onLoopSetAValue={handleLoopSetAValue}
+        onLoopSetBValue={handleLoopSetBValue}
+        onLoopAdjustA={handleLoopAdjustA}
+        onLoopAdjustB={handleLoopAdjustB}
       />
     </section>
   );
