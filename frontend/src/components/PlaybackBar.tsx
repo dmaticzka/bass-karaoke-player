@@ -1,4 +1,4 @@
-import { LoaderCircle, Pause, Play, Square } from "lucide-react";
+import { LoaderCircle, Pause, Play, SkipBack, Square } from "lucide-react";
 import { usePlayerStore } from "../store/playerStore";
 
 interface Props {
@@ -6,6 +6,7 @@ interface Props {
   onStop: () => void;
   onSeek: (val: number) => void;
   onSeekRelative: (delta: number) => void;
+  onBack: () => void;
   onLoopToggle: () => void;
   onLoopSetA: () => void;
   onLoopSetB: () => void;
@@ -96,6 +97,7 @@ export function PlaybackBar({
   onStop,
   onSeek,
   onSeekRelative,
+  onBack,
   onLoopToggle,
   onLoopSetA,
   onLoopSetB,
@@ -145,6 +147,15 @@ export function PlaybackBar({
           title="Skip back 15 s"
         >
           <SkipBackIcon seconds={15} />
+        </button>
+        <button
+          id="back-btn"
+          className="btn btn-secondary btn-lg"
+          onClick={onBack}
+          aria-label="Back to start / loop point A"
+          title="Back to start (or A when looping)"
+        >
+          <SkipBack size={22} />
         </button>
         <button
           id="play-pause-btn"

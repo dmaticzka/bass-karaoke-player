@@ -355,6 +355,11 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   // Loop controls
   // -----------------------------------------------------------------------
+  const handleBack = () => {
+    const target = loopEnabled ? (loopStart ?? 0) : 0;
+    handleSeek(target);
+  };
+
   const handleLoopToggle = () => {
     const newEnabled = !loopEnabled;
     if (newEnabled && loopStart === null) {
@@ -703,6 +708,7 @@ export function PlayerSection() {
         onStop={handleStop}
         onSeek={handleSeek}
         onSeekRelative={handleSeekRelative}
+        onBack={handleBack}
         onLoopToggle={handleLoopToggle}
         onLoopSetA={handleLoopSetA}
         onLoopSetB={handleLoopSetB}
