@@ -355,6 +355,11 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   // Loop controls
   // -----------------------------------------------------------------------
+  const handleBack = () => {
+    const target = loopEnabled ? (loopStart ?? 0) : 0;
+    handleSeek(target);
+  };
+
   const handleLoopToggle = () => {
     const newEnabled = !loopEnabled;
     if (newEnabled && loopStart === null) {
@@ -403,6 +408,60 @@ export function PlayerSection() {
       eng.stopSeekTimer();
       playAll(offset);
     }
+  };
+
+  const handleLoopClearA = () => {
+    setLoopStart(0);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(0);
+    }
+  };
+
+  const handleLoopClearB = () => {
+    setLoopEnd(duration);
+    if (isPlaying) {
+      const offset = Math.min(startOffset, duration);
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(offset);
+    }
+  };
+
+  const handleLoopSetAValue = (val: number) => {
+    const s = usePlayerStore.getState();
+    const newStart = Math.max(0, Math.min(val, s.loopEnd ?? s.duration));
+    setLoopStart(newStart);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(newStart);
+    }
+  };
+
+  const handleLoopSetBValue = (val: number) => {
+    const s = usePlayerStore.getState();
+    const newEnd = Math.max(s.loopStart ?? 0, Math.min(val, s.duration));
+    setLoopEnd(newEnd);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      const offset = Math.min(startOffset, newEnd);
+      playAll(offset);
+    }
+  };
+
+  const handleLoopAdjustA = (delta: number) => {
+    const s = usePlayerStore.getState();
+    const current = s.loopStart ?? 0;
+    handleLoopSetAValue(current + delta);
+  };
+
+  const handleLoopAdjustB = (delta: number) => {
+    const s = usePlayerStore.getState();
+    const current = s.loopEnd ?? s.duration;
+    handleLoopSetBValue(current + delta);
   };
 
   // -----------------------------------------------------------------------
@@ -649,10 +708,17 @@ export function PlayerSection() {
         onStop={handleStop}
         onSeek={handleSeek}
         onSeekRelative={handleSeekRelative}
+        onBack={handleBack}
         onLoopToggle={handleLoopToggle}
         onLoopSetA={handleLoopSetA}
         onLoopSetB={handleLoopSetB}
         onLoopClear={handleLoopClear}
+        onLoopClearA={handleLoopClearA}
+        onLoopClearB={handleLoopClearB}
+        onLoopSetAValue={handleLoopSetAValue}
+        onLoopSetBValue={handleLoopSetBValue}
+        onLoopAdjustA={handleLoopAdjustA}
+        onLoopAdjustB={handleLoopAdjustB}
       />
     </section>
   );

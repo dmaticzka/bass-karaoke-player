@@ -31,7 +31,11 @@ import { CacheableResponsePlugin } from "workbox-cacheable-response";
 
 declare const self: ServiceWorkerGlobalScope;
 
-// Take control immediately so that the first page load benefits from the SW.
+// Take control immediately so that the first page load benefits from the SW,
+// and so that a newly installed SW activates without waiting for all existing
+// tabs to close.  Together these two calls mean: install → activate → claim,
+// all without any open tab needing to be closed or the cache manually cleared.
+self.addEventListener("install", () => self.skipWaiting());
 clientsClaim();
 
 // ---------------------------------------------------------------------------
