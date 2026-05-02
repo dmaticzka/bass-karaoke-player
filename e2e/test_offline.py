@@ -31,12 +31,18 @@ def _wait_for_sw_ready(page: Page) -> None:
     """Block until the page's Service Worker is installed and controlling.
 
     Resolves ``navigator.serviceWorker.ready``, which settles only when a
-    SW is active and controlling the page.  Also waits a short extra period
-    for the SW to finish precaching all shell assets.
+    SW is active and controlling the page.  Then waits until the SW's
+    precache install event has fired (checked via the Cache Storage API) so
+    that offline reloads have all shell assets available.
     """
     page.evaluate("() => navigator.serviceWorker.ready")
-    # Give Workbox a moment to finish the precache install (network-bound).
-    page.wait_for_timeout(3_000)
+    # Wait until at least one of the precached shell entries appears in
+    # Cache Storage, confirming the install step has completed.
+    page.wait_for_function(
+        """() => caches.keys().then(names =>
+            names.some(n => n.startsWith('workbox-precache') || n.includes('shell')))""",
+        timeout=15_000,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -170,8 +176,14 @@ class TestOfflineStemPlayback:
             "card hidden", timeout=10_000
         )
 
-        # Allow SW to finish caching all stem responses.
-        page.wait_for_timeout(1_000)
+        # Allow SW to finish caching all stem responses – wait until the stems
+        # cache bucket contains at least one entry (confirms CacheFirst caching).
+        page.wait_for_function(
+            """() => caches.open('bass-karaoke-stems-v1')
+                .then(c => c.keys())
+                .then(keys => keys.length > 0)""",
+            timeout=10_000,
+        )
 
         # Set offline and reload.
         fresh_context.set_offline(True)

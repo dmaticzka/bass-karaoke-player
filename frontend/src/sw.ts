@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 /**
  * Service Worker for Bass Karaoke Player.
  *
@@ -13,7 +14,6 @@
  * the shell cache entries; the stems cache is untouched.
  */
 
-/// <reference lib="webworker" />
 import { clientsClaim } from "workbox-core";
 import {
   cleanupOutdatedCaches,
@@ -96,11 +96,11 @@ registerRoute(
 
 registerRoute(
   ({ url }) =>
-    url.pathname.startsWith("/api/songs/") ||
-    url.pathname === "/api/config" ||
-    url.pathname === "/api/health",
+    url.pathname.startsWith("/api/songs/") || url.pathname === "/api/config",
   new StaleWhileRevalidate({
     cacheName: "bass-karaoke-api-v1",
     plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
   }),
 );
+// NOTE: /api/health is intentionally NOT cached so that the online-status
+// probe (useOnlineStatus hook) always reflects true network reachability.

@@ -196,9 +196,9 @@ describe("VersionsPicker", () => {
       vi.mocked(audioCache.hasCached).mockResolvedValue(false);
       resetStoreWithStems([defaultVersion]);
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
-      // Wait a tick for the async effect to settle
+      // Flush all pending microtasks so the async cache-check effect settles.
       await act(async () => {
-        await new Promise((r) => setTimeout(r, 0));
+        await Promise.resolve();
       });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
     });
@@ -243,8 +243,9 @@ describe("VersionsPicker", () => {
         },
       });
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      // Flush pending microtasks so the async effect has a chance to run.
       await act(async () => {
-        await new Promise((r) => setTimeout(r, 0));
+        await Promise.resolve();
       });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
     });
