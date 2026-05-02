@@ -202,16 +202,28 @@ export function PlaybackBar({
       </div>
 
       <div className="seek-row">
-        <input
-          id="seek-slider"
-          type="range"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={pos}
-          onChange={(e) => onSeek(Number(e.target.value))}
-          aria-label="Seek"
-        />
+        <div className="seek-slider-wrapper">
+          <input
+            id="seek-slider"
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            value={pos}
+            onChange={(e) => onSeek(Number(e.target.value))}
+            aria-label="Seek"
+          />
+          {loopEnabled && loopStart !== null && loopEnd !== null && duration > 0 && (
+            <div
+              className="loop-range-indicator"
+              style={{
+                left: `${(loopStart / duration) * 100}%`,
+                width: `${((loopEnd - loopStart) / duration) * 100}%`,
+              }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
         <span id="time-display">
           {fmtTime(pos)} / {fmtTime(duration)}
         </span>
@@ -362,18 +374,6 @@ export function PlaybackBar({
           </button>
         ))}
       </div>
-
-      {/* A-B loop indicator on seek slider */}
-      {loopEnabled && loopStart !== null && loopEnd !== null && duration > 0 && (
-        <div
-          className="loop-range-indicator"
-          style={{
-            left: `${(loopStart / duration) * 100}%`,
-            width: `${((loopEnd - loopStart) / duration) * 100}%`,
-          }}
-          aria-hidden="true"
-        />
-      )}
     </div>
   );
 }

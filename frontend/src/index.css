@@ -496,8 +496,15 @@ a:hover { text-decoration: underline; }
 /* On small screens: 2 buttons per row (3 rows for 6 buttons) */
 .playback-buttons .btn { flex: 1 1 calc(50% - 0.325rem); }
 .seek-row { display: flex; align-items: center; gap: 0.65rem; }
-.seek-row input[type="range"] {
+.seek-slider-wrapper {
+  position: relative;
   flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.seek-slider-wrapper input[type="range"] {
+  width: 100%;
   accent-color: var(--color-accent);
   height: 4px;
   cursor: ew-resize;
@@ -508,9 +515,10 @@ a:hover { text-decoration: underline; }
 .loop-display { font-size: 0.82rem; color: var(--color-text); font-variant-numeric: tabular-nums; }
 .loop-range-indicator {
   position: absolute;
-  top: calc(var(--touch-target) + 0.65rem + 2px);
-  height: 3px;
-  background: rgba(180,180,180,0.4);
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  background: rgba(99, 179, 237, 0.45);
   border-radius: 2px;
   pointer-events: none;
 }
@@ -560,7 +568,6 @@ a:hover { text-decoration: underline; }
 @media (min-width: 600px) {
   .playback-buttons { flex-wrap: nowrap; }
   .playback-buttons .btn { flex: 0 0 auto; }
-  .seek-row { flex: 1; min-width: 200px; }
 }
 
 /* ---------- Equalizer ---------- */
