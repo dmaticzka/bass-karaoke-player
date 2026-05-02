@@ -98,7 +98,6 @@ export function VersionsPicker({ onSelectVersion }: Props) {
               key={`${ver.pitch_semitones}-${ver.tempo_ratio}`}
               className={[
                 "version-item",
-                ver.is_default ? "default-version" : "",
                 isActive ? "active" : "",
                 isClientCached ? "version-cached" : "",
                 ver.status === "processing" ? "status-processing" : "",

@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { SongList } from "../../components/SongList";
 import { usePlayerStore } from "../../store/playerStore";
 import type { Song } from "../../types";
+
+vi.mock("../../audio/audioCache", () => ({
+  hasCached: vi.fn().mockResolvedValue(false),
+}));
 
 // Mock the api module
 vi.mock("../../api/client", () => ({
   api: {
     deleteSong: vi.fn().mockResolvedValue(undefined),
     getSongs: vi.fn().mockResolvedValue({ songs: [] }),
+    stemUrl: vi.fn().mockImplementation((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
   },
 }));
 
@@ -61,22 +66,30 @@ describe("SongList", () => {
     expect(document.querySelectorAll(".song-item")).toHaveLength(2);
   });
 
-  it("shows 'Ready' badge for ready song", () => {
-    resetStore([readySong]);
+  it("does not render a status badge for any song", () => {
+    resetStore([readySong, splittingSong, errorSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(document.querySelector(".song-status-badge")).not.toBeInTheDocument();
   });
 
-  it("shows 'Splitting…' badge for splitting song", () => {
+  it("shows disabled 'Splitting…' button for splitting song", () => {
     resetStore([splittingSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    expect(screen.getByText("Splitting…")).toBeInTheDocument();
+    const btn = screen.getByText("Splitting…");
+    expect(btn).toBeInTheDocument();
+    expect(btn).toBeDisabled();
   });
 
-  it("shows 'Error' badge for error song", () => {
+  it("splitting button has status-splitting class (pulsates)", () => {
+    resetStore([splittingSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    expect(document.querySelector(".song-load-btn.status-splitting")).toBeInTheDocument();
+  });
+
+  it("does not show a load button for error songs", () => {
     resetStore([errorSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    expect(screen.getByText("Error")).toBeInTheDocument();
+    expect(document.querySelector(".song-load-btn")).not.toBeInTheDocument();
   });
 
   it("shows Load button only for ready songs", () => {
@@ -135,5 +148,39 @@ describe("SongList", () => {
     const select = screen.getByRole("combobox", { name: "Sort order" });
     fireEvent.change(select, { target: { value: "alphabetical" } });
     expect(usePlayerStore.getState().songSortOrder).toBe("alphabetical");
+  });
+
+  it("load button has song-cached class when all stems are in SW cache", async () => {
+    const audioCache = await import("../../audio/audioCache");
+    vi.mocked(audioCache.hasCached).mockResolvedValue(true);
+    resetStore([readySong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    await waitFor(() => {
+      expect(document.querySelector(".song-load-btn.song-cached")).toBeInTheDocument();
+    });
+  });
+
+  it("does not add song-cached class when stems are not in SW cache", async () => {
+    const audioCache = await import("../../audio/audioCache");
+    vi.mocked(audioCache.hasCached).mockResolvedValue(false);
+    resetStore([readySong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector(".song-load-btn.song-cached")).not.toBeInTheDocument();
+  });
+
+  it("uses stemUrl to check cache for each stem", async () => {
+    const audioCache = await import("../../audio/audioCache");
+    const { api } = await import("../../api/client");
+    vi.mocked(audioCache.hasCached).mockResolvedValue(true);
+    resetStore([readySong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    await waitFor(() => {
+      expect(document.querySelector(".song-load-btn.song-cached")).toBeInTheDocument();
+    });
+    expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "vocals");
+    expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "bass");
   });
 });
