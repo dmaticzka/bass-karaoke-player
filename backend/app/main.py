@@ -224,6 +224,25 @@ def create_app() -> FastAPI:
                 )
             return FileResponse(str(index))
 
+        @app.get("/sw.js", include_in_schema=False)
+        async def serve_sw() -> FileResponse:
+            """Serve the Service Worker with a root scope header.
+
+            The SW file is built into the static directory, but the browser
+            limits SW scope to the directory it is served from unless the
+            *Service-Worker-Allowed* response header grants a wider scope.
+            Serving /sw.js from the root with the header allows the SW to
+            intercept requests for /, /api/*, and /static/*.
+            """
+            sw_path = FRONTEND_DIR / "sw.js"
+            if not sw_path.is_file():
+                raise HTTPException(status_code=404, detail="Service worker not found.")
+            return FileResponse(
+                str(sw_path),
+                media_type="application/javascript",
+                headers={"Service-Worker-Allowed": "/"},
+            )
+
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     app.include_router(_song_router())

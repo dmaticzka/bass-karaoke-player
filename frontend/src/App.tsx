@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Folder, Music2 } from "lucide-react";
+import { Folder, Music2, WifiOff } from "lucide-react";
 import { usePlayerStore } from "./store/playerStore";
 import { api } from "./api/client";
 import { getSongTitle } from "./utils/songDisplay";
@@ -9,6 +9,7 @@ import { PlayerSection } from "./components/PlayerSection";
 import { Equalizer } from "./components/Equalizer";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { BottomNav } from "./components/BottomNav";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import type { AppTab, Song } from "./types";
 
 export default function App() {
@@ -22,6 +23,8 @@ export default function App() {
 
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [eqCollapsed, setEqCollapsed] = useState(true);
+
+  const isOnline = useOnlineStatus();
 
   // Bootstrap: fetch config + song list
   useEffect(() => {
@@ -92,6 +95,12 @@ export default function App() {
           <Music2 size={18} aria-hidden="true" />
           Bass Karaoke Player
         </h1>
+        {!isOnline && (
+          <span className="offline-badge" aria-label="Offline – using cached data">
+            <WifiOff size={14} aria-hidden="true" />
+            Offline
+          </span>
+        )}
         {activeTab !== "library" && activeSong && (
           <p className="subtitle">{getSongTitle(activeSong)}</p>
         )}

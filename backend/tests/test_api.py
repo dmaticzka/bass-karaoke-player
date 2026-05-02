@@ -496,6 +496,52 @@ class TestFrontend:
         assert resp.status_code == 200
         assert "hello" in resp.text
 
+    def test_sw_js_served_with_scope_header(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /sw.js must serve the SW file with Service-Worker-Allowed: / header."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        (frontend_dir / "sw.js").write_text("// service worker")
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        data_dir = tmp_path / "data"
+        main_module.storage = SongStorage(data_dir)
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app)
+        resp = test_client.get("/sw.js")
+        assert resp.status_code == 200
+        assert resp.headers.get("service-worker-allowed") == "/"
+        assert "service worker" in resp.text
+
+    def test_sw_js_returns_404_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GET /sw.js must return 404 when the SW file does not exist."""
+        import backend.app.main as main_module
+
+        frontend_dir = tmp_path / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / "index.html").write_text("<html></html>")
+        # Intentionally do NOT create sw.js
+
+        monkeypatch.setattr(main_module, "FRONTEND_DIR", frontend_dir)
+        data_dir = tmp_path / "data"
+        main_module.storage = SongStorage(data_dir)
+        main_module.splitter = MagicMock()
+        main_module.processor = MagicMock()
+
+        app = create_app()
+        test_client = TestClient(app, raise_server_exceptions=False)
+        resp = test_client.get("/sw.js")
+        assert resp.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # Lifespan

@@ -125,6 +125,38 @@ uv run ruff check backend/
 uv run ruff format --check backend/
 ```
 
+### Frontend tests
+
+```bash
+# Install frontend dependencies
+npm ci --prefix frontend
+
+# Run frontend tests
+npm test --prefix frontend
+```
+
+### E2E tests
+
+The end-to-end tests use [Playwright](https://playwright.dev/) and require a built frontend and `ffmpeg` installed on the system.
+
+```bash
+# Install system dependency (Debian/Ubuntu)
+sudo apt-get install -y ffmpeg
+
+# Install dev dependencies (if not done already)
+uv sync --group dev
+
+# Install Playwright browser
+uv run playwright install --with-deps chromium
+
+# Build the frontend
+npm ci --prefix frontend
+npm run build --prefix frontend
+
+# Run E2E tests
+PYTHONPATH=. FRONTEND_DIR=frontend/dist uv run pytest e2e/ -v --no-cov
+```
+
 ### Project structure
 
 ```
