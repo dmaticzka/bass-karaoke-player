@@ -8,10 +8,8 @@ fixture (from pytest-playwright) provides a real Chromium page whose
 
 from __future__ import annotations
 
-import time
-
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Page, expect
 
 from e2e.conftest import _TAGGED_ARTIST, _TAGGED_TITLE
 
@@ -116,12 +114,20 @@ class TestPlayerSection:
         """Load a song while stem responses are delayed to keep UI in loading state."""
         page.goto("/")
 
-        def _delay_stem_response(route: Route) -> None:
-            response = route.fetch()
-            time.sleep(2.0)
-            route.fulfill(response=response)
-
-        page.route("**/api/songs/*/stems/*", _delay_stem_response)
+        # Patch window.fetch in the browser to delay stem requests by 2 s.
+        # This runs entirely within the browser's JS engine so the Python
+        # thread is never blocked, allowing expect() assertions to run.
+        page.evaluate(
+            """() => {
+                const orig = window.fetch;
+                window.fetch = async (url, ...args) => {
+                    if (typeof url === 'string' && url.includes('/stems/')) {
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                    return orig(url, ...args);
+                };
+            }"""
+        )
 
         song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
         load_btn = song_item.locator(".btn-primary")
