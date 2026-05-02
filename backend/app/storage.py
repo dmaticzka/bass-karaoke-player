@@ -223,25 +223,24 @@ class SongStorage:
         return evicted
 
     def list_versions(self, song_id: str) -> list[tuple[float, float]]:
-        """Return unique (pitch_semitones, tempo_ratio) pairs from processed/ dir."""
-        proc_dir = self.processed_output_dir(song_id)
-        if not proc_dir.exists():
-            return []
+        """Return (pitch_semitones, tempo_ratio) pairs registered in versions.json.
 
-        versions: set[tuple[float, float]] = set()
-        for f in proc_dir.iterdir():
-            if f.suffix != ".mp3":
-                continue
-            name = f.stem  # filename without .mp3
-            for stem in StemName:
-                prefix = f"{stem.value}_"
-                if name.startswith(prefix):
-                    tag = name[len(prefix) :]
-                    parsed = self._parse_version_tag(tag)
-                    if parsed is not None:
-                        versions.add(parsed)
-                    break
+        Only versions that have been fully committed via :meth:`touch_version`
+        are returned.  Files that are still being written (e.g. by a rubberband
+        subprocess) or that were left behind by a crashed process are
+        intentionally excluded – they have no entry in versions.json yet.
 
+        This is the authoritative source of truth for which versions are ready
+        for use.  Combined with atomic temp-file writes in the processing
+        pipeline, it prevents the version bubble in the UI from flickering to
+        "ready" before computation has actually finished.
+        """
+        meta = self.read_version_meta(song_id)
+        versions: list[tuple[float, float]] = []
+        for tag in meta:
+            parsed = self._parse_version_tag(tag)
+            if parsed is not None:
+                versions.append(parsed)
         return sorted(versions)
 
     @staticmethod

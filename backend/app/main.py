@@ -341,12 +341,23 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
             raise AudioProcessorError(f"Stem file missing for {song_id}/{stem_name}")
         output_path = storage.processed_path(song_id, stem_name, pitch, tempo)
         if not output_path.exists():
-            processor.process(
-                input_path,
-                output_path,
-                pitch_semitones=pitch,
-                tempo_ratio=tempo,
-            )
+            # Write to a temporary path first, then rename atomically.  This
+            # prevents list_versions / version_status from seeing the file as
+            # present (and potentially READY) while rubberband is still writing
+            # it, which would cause the UI to prematurely drop the pending
+            # indicator on the version bubble.
+            tmp_path = output_path.with_suffix(".tmp")
+            try:
+                processor.process(
+                    input_path,
+                    tmp_path,
+                    pitch_semitones=pitch,
+                    tempo_ratio=tempo,
+                )
+                tmp_path.rename(output_path)
+            except Exception:
+                tmp_path.unlink(missing_ok=True)
+                raise
 
     futures: dict[concurrent.futures.Future[None], StemName] = {
         process_executor.submit(_process_single_stem, stem): stem
@@ -606,6 +617,13 @@ def _song_router() -> APIRouter:
 
         The default version (pitch=0, tempo=1.0) is always included first and
         represents the unmodified stems produced by demucs.
+
+        Non-default versions are sourced exclusively from versions.json, which
+        is only written by touch_version() *after* all stems have been fully
+        processed and their output files atomically renamed into place.  This
+        means the list never contains an in-progress version, so the frontend
+        pending indicator on a version bubble stays active until the version is
+        truly ready.
         """
         _require_ready_song(song_id)
         pairs = storage.list_versions(song_id)
