@@ -1,21 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { usePlayerStore } from "../store/playerStore";
 import type { SongSortOrder } from "../store/playerStore";
 import { api } from "../api/client";
 import type { Song } from "../types";
 import { getSongArtist, getSongLabel, getSongTitle } from "../utils/songDisplay";
 import { sortSongs } from "../utils/songSort";
+import { hasCached } from "../audio/audioCache";
 
 interface Props {
   onLoadSong: (song: Song) => void;
-}
-
-function statusLabel(status: string): string {
-  return (
-    { uploaded: "Uploaded", splitting: "Splitting…", ready: "Ready", error: "Error" }[
-      status
-    ] ?? status
-  );
 }
 
 export function SongList({ onLoadSong }: Props) {
@@ -24,6 +17,26 @@ export function SongList({ onLoadSong }: Props) {
   const setSongs = usePlayerStore((s) => s.setSongs);
   const songSortOrder = usePlayerStore((s) => s.songSortOrder);
   const setSongSortOrder = usePlayerStore((s) => s.setSongSortOrder);
+
+  const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
+
+  // Check which songs have their main stems fully cached in the SW stem cache.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const nextCached = new Set<string>();
+      for (const song of songs) {
+        if (song.stems.length === 0) continue;
+        const urls = song.stems.map((stem) => api.stemUrl(song.id, stem));
+        const cached = await hasCached(urls);
+        if (cached) nextCached.add(song.id);
+      }
+      if (!cancelled) setCachedSongIds(nextCached);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [songs]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this song and all its stems?")) return;
@@ -82,17 +95,24 @@ export function SongList({ onLoadSong }: Props) {
                 <span className="song-title">{getSongTitle(song)}</span>
               </span>
 
-              <span className={`song-status-badge status-${song.status}`}>
-                {statusLabel(song.status)}
-              </span>
-
               <div className="song-actions">
-                {song.status === "ready" && (
+                {(song.status === "ready" || song.status === "splitting") && (
                   <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() => onLoadSong(song)}
+                    className={[
+                      "btn btn-sm btn-primary song-load-btn",
+                      song.status === "splitting" ? "status-splitting" : "",
+                      cachedSongIds.has(song.id) ? "song-cached" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={song.status === "ready" ? () => onLoadSong(song) : undefined}
+                    disabled={song.status === "splitting"}
                   >
-                    {activeSong?.id === song.id ? "Active" : "Load"}
+                    {song.status === "splitting"
+                      ? "Splitting…"
+                      : activeSong?.id === song.id
+                        ? "Active"
+                        : "Load"}
                   </button>
                 )}
                 <button

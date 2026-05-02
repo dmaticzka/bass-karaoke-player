@@ -60,13 +60,19 @@ class TestSongList:
         # Use .first because the session may have multiple songs.
         expect(page.locator(".song-item").first).to_be_visible()
 
-    def test_ready_song_shows_ready_badge(self, page: Page, ready_song_id: str) -> None:
+    def test_ready_song_shows_enabled_load_button(
+        self, page: Page, ready_song_id: str
+    ) -> None:
+        """A ready song exposes its status via an enabled load button (no separate badge)."""
         page.goto("/")
-        expect(page.locator(".status-ready").first).to_be_visible()
+        song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
+        load_btn = song_item.locator(".song-load-btn")
+        expect(load_btn).to_be_visible()
+        expect(load_btn).not_to_be_disabled()
 
     def test_ready_song_has_load_button(self, page: Page, ready_song_id: str) -> None:
         page.goto("/")
-        expect(page.locator(".song-item .btn-primary").first).to_be_visible()
+        expect(page.locator(".song-item .song-load-btn").first).to_be_visible()
 
     def test_refresh_button_present(self, page: Page) -> None:
         page.goto("/")
@@ -104,7 +110,7 @@ class TestPlayerSection:
         # Target the specific song row by data-id to be robust when
         # multiple songs are present in the test session data directory.
         song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
-        load_btn = song_item.locator(".btn-primary")
+        load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
         return page
@@ -130,7 +136,7 @@ class TestPlayerSection:
         )
 
         song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
-        load_btn = song_item.locator(".btn-primary")
+        load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
         return page
@@ -155,7 +161,7 @@ class TestPlayerSection:
         """When a song has embedded tags the player title shows artist and title."""
         page.goto("/")
         song_item = page.locator(f'.song-item[data-id="{ready_song_with_metadata_id}"]')
-        load_btn = song_item.locator(".btn-primary")
+        load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
         title = page.locator("#player-title")
@@ -200,7 +206,7 @@ class TestEqualizer:
         """Navigate to the app, load the ready song, then open the EQ tab."""
         page.goto("/")
         song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
-        load_btn = song_item.locator(".btn-primary")
+        load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
         # Navigate to the EQ tab via BottomNav
