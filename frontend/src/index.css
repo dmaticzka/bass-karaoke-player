@@ -99,6 +99,21 @@ a:hover { text-decoration: underline; }
   text-overflow: ellipsis;
 }
 
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-error, #c0392b);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
 /* ---------- Main content ---------- */
 .app-main {
   flex: 1;

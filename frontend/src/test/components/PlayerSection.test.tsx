@@ -66,13 +66,9 @@ vi.mock("../../audio/engine", () => ({
 }));
 
 vi.mock("../../audio/audioCache", () => ({
-  get: vi.fn(() => undefined),
-  set: vi.fn(),
-  clear: vi.fn(),
-  size: vi.fn(() => 0),
-  has: vi.fn(() => false),
-  MAX_ENTRIES: 20,
+  CACHE_STORAGE_NAME: "bass-karaoke-stems-v1",
   fetchWithCache: vi.fn(() => Promise.resolve(new ArrayBuffer(0))),
+  hasCached: vi.fn(() => Promise.resolve(false)),
 }));
 
 // ---------------------------------------------------------------------------

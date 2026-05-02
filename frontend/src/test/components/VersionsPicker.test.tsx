@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { VersionsPicker } from "../../components/VersionsPicker";
 import { usePlayerStore } from "../../store/playerStore";
 import type { StemName, Version } from "../../types";
 
 vi.mock("../../audio/audioCache", () => ({
-  has: vi.fn().mockReturnValue(false),
+  hasCached: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -181,28 +181,37 @@ describe("VersionsPicker", () => {
       });
     }
 
-    it("adds version-cached class when all stems are in the client cache", async () => {
+    it("adds version-cached class when all stems are in the SW cache", async () => {
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasCached).mockResolvedValue(true);
       resetStoreWithStems([defaultVersion]);
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
-      expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
+      });
     });
 
-    it("does not add version-cached class when stems are not in the client cache", async () => {
+    it("does not add version-cached class when stems are not in the SW cache", async () => {
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(false);
+      vi.mocked(audioCache.hasCached).mockResolvedValue(false);
       resetStoreWithStems([defaultVersion]);
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      // Wait a tick for the async effect to settle
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
     });
 
     it("uses processedStemUrl for non-default versions", async () => {
       const { api } = await import("../../api/client");
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasCached).mockResolvedValue(true);
       resetStoreWithStems([customVersion]);
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await waitFor(() => {
+        expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
+      });
       expect(vi.mocked(api.processedStemUrl)).toHaveBeenCalled();
       expect(vi.mocked(api.stemUrl)).not.toHaveBeenCalled();
     });
@@ -210,14 +219,17 @@ describe("VersionsPicker", () => {
     it("uses stemUrl for the default version", async () => {
       const { api } = await import("../../api/client");
       const audioCache = await import("../../audio/audioCache");
-      vi.mocked(audioCache.has).mockReturnValue(true);
+      vi.mocked(audioCache.hasCached).mockResolvedValue(true);
       resetStoreWithStems([defaultVersion]);
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await waitFor(() => {
+        expect(document.querySelector(".version-item.version-cached")).toBeInTheDocument();
+      });
       expect(vi.mocked(api.stemUrl)).toHaveBeenCalled();
       expect(vi.mocked(api.processedStemUrl)).not.toHaveBeenCalled();
     });
 
-    it("does not add version-cached class when activeSong has no stems", () => {
+    it("does not add version-cached class when activeSong has no stems", async () => {
       usePlayerStore.setState({
         versions: [defaultVersion],
         activeVersion: { pitch: 0, tempo: 1.0 },
@@ -231,6 +243,9 @@ describe("VersionsPicker", () => {
         },
       });
       render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
     });
   });
