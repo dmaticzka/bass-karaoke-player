@@ -338,21 +338,6 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
-@media (min-width: 600px) {
-  .global-controls {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0.75rem 1.25rem;
-  }
-  .control-group { flex: 1; min-width: 140px; }
-  .control-group--actions {
-    flex: 0 0 auto;
-    min-width: auto;
-    align-items: flex-end;
-  }
-}
-
 /* ---------- Versions ---------- */
 .versions-section {
   margin-bottom: 1rem;
