@@ -174,16 +174,28 @@ class TestVersionStorage:
         assert storage.list_versions(song.id) == []
 
     def test_list_versions_empty_dir(self, storage: SongStorage) -> None:
-        """list_versions returns [] for an existing but empty processed/ dir."""
+        """list_versions returns [] for an existing but empty processed/ dir.
+
+        With the versions.json-based implementation, emptiness of the
+        directory is irrelevant; an absent or empty versions.json also
+        produces [].
+        """
         song = storage.create_song("song.mp3")
         storage.processed_output_dir(song.id).mkdir(parents=True, exist_ok=True)
         assert storage.list_versions(song.id) == []
 
     def test_list_versions_single(self, storage: SongStorage) -> None:
-        """A single processed file yields one version tuple."""
+        """A version registered via touch_version is returned by list_versions.
+
+        list_versions reads from versions.json, so files that exist on disk but
+        have not been committed via touch_version are excluded.
+        """
         song = storage.create_song("song.mp3")
         path = storage.processed_path(song.id, StemName.VOCALS, 2.0, 1.5)
         path.write_bytes(b"\x00" * 10)
+        # Version is not visible until registered.
+        assert storage.list_versions(song.id) == []
+        storage.touch_version(song.id, 2.0, 1.5)
         versions = storage.list_versions(song.id)
         assert versions == [(2.0, 1.5)]
 
@@ -195,6 +207,7 @@ class TestVersionStorage:
         for stem in StemName:
             path = storage.processed_path(song.id, stem, -3.0, 0.75)
             path.write_bytes(b"\x00" * 10)
+        storage.touch_version(song.id, -3.0, 0.75)
         versions = storage.list_versions(song.id)
         assert versions == [(-3.0, 0.75)]
 
@@ -204,6 +217,9 @@ class TestVersionStorage:
         storage.processed_path(song.id, StemName.BASS, 0.0, 0.5).write_bytes(b"\x00")
         storage.processed_path(song.id, StemName.BASS, 2.0, 1.0).write_bytes(b"\x00")
         storage.processed_path(song.id, StemName.BASS, -1.0, 1.25).write_bytes(b"\x00")
+        storage.touch_version(song.id, 0.0, 0.5)
+        storage.touch_version(song.id, 2.0, 1.0)
+        storage.touch_version(song.id, -1.0, 1.25)
         versions = storage.list_versions(song.id)
         assert len(versions) == 3
         assert (-1.0, 1.25) in versions
@@ -211,7 +227,12 @@ class TestVersionStorage:
         assert (2.0, 1.0) in versions
 
     def test_list_versions_ignores_unknown_files(self, storage: SongStorage) -> None:
-        """Files with unexpected names are silently ignored."""
+        """Unregistered files on disk (no versions.json entry) are not listed.
+
+        Under the new design, list_versions reads from versions.json.  Stray
+        files that were never committed via touch_version (e.g. left by a
+        crashed process) are silently ignored.
+        """
         song = storage.create_song("song.mp3")
         proc_dir = storage.processed_output_dir(song.id)
         proc_dir.mkdir(parents=True, exist_ok=True)
@@ -220,12 +241,16 @@ class TestVersionStorage:
         assert storage.list_versions(song.id) == []
 
     def test_delete_version_removes_files(self, storage: SongStorage) -> None:
-        """delete_version removes all stem files for the given pair."""
+        """delete_version removes all stem files and the versions.json entry."""
         song = storage.create_song("song.mp3")
         for stem in StemName:
             storage.processed_path(song.id, stem, 1.0, 1.2).write_bytes(b"\x00")
+        storage.touch_version(song.id, 1.0, 1.2)
+        # Version is visible before deletion.
+        assert storage.list_versions(song.id) == [(1.0, 1.2)]
         count = storage.delete_version(song.id, 1.0, 1.2)
         assert count == len(list(StemName))
+        # Version disappears from the registry after deletion.
         assert storage.list_versions(song.id) == []
 
     def test_delete_version_returns_zero_when_not_found(

@@ -1102,16 +1102,18 @@ class TestListVersions:
         assert default["is_default"] is True
 
     def test_includes_cached_versions(self, client: TestClient, data_dir: Path) -> None:
-        """Processed files in processed/ dir are reflected in response."""
+        """Versions registered in versions.json are reflected in response."""
         import backend.app.main as main_module
 
         self._make_ready_song(data_dir)
         storage = SongStorage(data_dir)
         main_module.storage = storage
-        # Create a processed file
+        # Create all processed files and register via touch_version so
+        # list_versions (which now reads versions.json) picks them up.
         for stem in StemName:
             path = storage.processed_path("ver-song", stem, 2.0, 1.5)
             path.write_bytes(b"\x00" * 10)
+        storage.touch_version("ver-song", 2.0, 1.5)
 
         resp = client.get("/api/songs/ver-song/versions")
         assert resp.status_code == 200
@@ -1126,7 +1128,13 @@ class TestListVersions:
     def test_ignores_duplicate_default_cached_version(
         self, client: TestClient, data_dir: Path
     ) -> None:
-        """A cached 0/1 pair must not appear as a second non-default entry."""
+        """Files for the 0/1 pair must not appear as a second non-default entry.
+
+        list_versions reads from versions.json.  Even if processed files for
+        pitch=0, tempo=1.0 exist on disk, the default version entry in the
+        response is always the hardcoded one inserted by the endpoint, and
+        the skip guard (pitch==0.0 and tempo==1.0) prevents a duplicate.
+        """
         import backend.app.main as main_module
 
         self._make_ready_song(data_dir)
@@ -1135,6 +1143,8 @@ class TestListVersions:
         for stem in StemName:
             path = storage.processed_path("ver-song", stem, 0.0, 1.0)
             path.write_bytes(b"\x00" * 10)
+        # Register the default pair in versions.json to exercise the skip guard.
+        storage.touch_version("ver-song", 0.0, 1.0)
 
         resp = client.get("/api/songs/ver-song/versions")
         assert resp.status_code == 200
@@ -1419,12 +1429,18 @@ class TestListVersionsEnriched:
     def test_partial_version_shows_partial_status(
         self, client: TestClient, data_dir: Path
     ) -> None:
+        """A version registered in versions.json with only some stems shows PARTIAL.
+
+        touch_version registers the pair so list_versions returns it; writing
+        only 1 of 4 stem files makes version_status return PARTIAL.
+        """
         import backend.app.main as main_module
 
         self._make_ready_song(data_dir)
         storage = SongStorage(data_dir)
         main_module.storage = storage
-        # Only 1 of 4 stems cached
+        # Register the version first, then write only 1 of 4 stems.
+        storage.touch_version("lve-song", 1.0, 1.5)
         storage.processed_path("lve-song", StemName.BASS, 1.0, 1.5).write_bytes(b"\x00")
 
         resp = client.get("/api/songs/lve-song/versions")

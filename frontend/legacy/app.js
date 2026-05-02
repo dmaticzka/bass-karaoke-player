@@ -203,7 +203,8 @@ function renderVersions() {
     const li = document.createElement("li");
     li.className = "version-item" +
       (ver.is_default ? " default-version" : "") +
-      (isActive ? " active" : "");
+      (isActive ? " active" : "") +
+      (ver.status === "processing" ? " status-processing" : "");
     li.title = `Pitch: ${pitchStr} semitones, Tempo: ${tempoStr}`;
 
     const labelSpan = document.createElement("span");
@@ -212,11 +213,10 @@ function renderVersions() {
 
     // Status badge for non-default versions
     if (!ver.is_default) {
-      const badge = document.createElement("span");
-      const statusText = ver.status === "processing" ? "⏳" : ver.status === "partial" ? "partial" : "";
-      if (statusText) {
-        badge.className = `version-status-badge status-${ver.status}`;
-        badge.textContent = statusText;
+      if (ver.status === "partial") {
+        const badge = document.createElement("span");
+        badge.className = "version-status-badge status-partial";
+        badge.textContent = "partial";
         li.appendChild(badge);
       }
       if (ver.accessed_at) {

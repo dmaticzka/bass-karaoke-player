@@ -401,7 +401,7 @@ a:hover { text-decoration: underline; }
   border-radius: 10px;
   font-weight: 600;
 }
-.version-status-badge.status-processing { background: #555; color: #ddd; animation: pulse 1.2s ease-in-out infinite; }
+.version-item.status-processing { animation: pulse 1.2s ease-in-out infinite; }
 .version-status-badge.status-partial { background: #4a4a4a; color: #ccc; }
 .version-item.version-cached { border-left: 3px solid var(--color-accent); padding-left: calc(0.65rem - 3px); }
 
