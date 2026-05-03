@@ -495,7 +495,7 @@ a:hover { text-decoration: underline; }
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas:
-    "label slider ."
+    "label slider slider"
     "neg   neg    pos";
   column-gap: 0.3rem;
   row-gap: 0.35rem;
@@ -559,7 +559,6 @@ a:hover { text-decoration: underline; }
     display: contents;
   }
   .ab-point-label {
-    width: 1rem;
     flex-shrink: 0;
   }
   .ab-point-slider {
