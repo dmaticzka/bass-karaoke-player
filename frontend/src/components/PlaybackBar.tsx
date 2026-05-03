@@ -17,6 +17,7 @@ interface Props {
   onLoopSetBValue: (val: number) => void;
   onLoopAdjustA: (delta: number) => void;
   onLoopAdjustB: (delta: number) => void;
+  onLoopShift: () => void;
 }
 
 function SkipBackIcon({ seconds }: { seconds: number }) {
@@ -108,6 +109,7 @@ export function PlaybackBar({
   onLoopSetBValue,
   onLoopAdjustA,
   onLoopAdjustB,
+  onLoopShift,
 }: Props) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
@@ -279,6 +281,16 @@ export function PlaybackBar({
           onClick={onLoopClear}
         >
           Clear
+        </button>
+        <button
+          id="loop-shift-btn"
+          className="btn btn-sm btn-secondary"
+          title="Shift loop: A←B, B←song end"
+          aria-label="Shift loop: A to old B, B to song end"
+          disabled={!loopEnabled}
+          onClick={onLoopShift}
+        >
+          A&lt;B&lt;Ω
         </button>
 
       </div>

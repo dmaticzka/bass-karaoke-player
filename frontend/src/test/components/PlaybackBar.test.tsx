@@ -36,6 +36,7 @@ const defaultProps = {
   onLoopSetBValue: vi.fn(),
   onLoopAdjustA: vi.fn(),
   onLoopAdjustB: vi.fn(),
+  onLoopShift: vi.fn(),
 };
 
 describe("PlaybackBar", () => {
@@ -200,5 +201,24 @@ describe("PlaybackBar", () => {
     render(<PlaybackBar {...defaultProps} onLoopAdjustB={onLoopAdjustB} />);
     fireEvent.click(screen.getByRole("button", { name: "Move B point +5 seconds" }));
     expect(onLoopAdjustB).toHaveBeenCalledWith(5);
+  });
+
+  it("A<B<Ω button is disabled when loop is not enabled", () => {
+    render(<PlaybackBar {...defaultProps} />);
+    expect(document.querySelector("#loop-shift-btn")).toBeDisabled();
+  });
+
+  it("A<B<Ω button is enabled when loop is enabled", () => {
+    usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 40 });
+    render(<PlaybackBar {...defaultProps} />);
+    expect(document.querySelector("#loop-shift-btn")).not.toBeDisabled();
+  });
+
+  it("calls onLoopShift when A<B<Ω button is clicked (loop enabled)", () => {
+    usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 40 });
+    const onLoopShift = vi.fn();
+    render(<PlaybackBar {...defaultProps} onLoopShift={onLoopShift} />);
+    fireEvent.click(document.querySelector("#loop-shift-btn")!);
+    expect(onLoopShift).toHaveBeenCalledTimes(1);
   });
 });
