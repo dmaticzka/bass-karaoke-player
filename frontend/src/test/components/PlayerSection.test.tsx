@@ -566,6 +566,39 @@ describe("PlayerSection", () => {
     expect(eng.stopSources).toHaveBeenCalled();
   });
 
+  it("loop Shift sets A to old B and B to song end", async () => {
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    // duration is set to getDuration() mock = 100 after load
+    await act(async () => {
+      usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 40 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#loop-shift-btn")!);
+    });
+    expect(usePlayerStore.getState().loopStart).toBe(40);
+    expect(usePlayerStore.getState().loopEnd).toBe(100); // duration from mock
+    expect(usePlayerStore.getState().duration).toBe(100); // duration unchanged
+  });
+
+  it("loop Shift when isPlaying=true stops and restarts at new A", async () => {
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ isPlaying: true, loopEnabled: true, loopStart: 10, loopEnd: 40 });
+    });
+    const eng = await import("../../audio/engine");
+    await act(async () => {
+      fireEvent.click(document.querySelector("#loop-shift-btn")!);
+    });
+    expect(eng.stopSources).toHaveBeenCalled();
+    expect(eng.playAll).toHaveBeenCalled();
+  });
+
   it("Precalculate button calls createVersion and refreshes versions list on success", async () => {
     vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
     vi.mocked(api.getVersions)

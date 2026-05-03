@@ -429,6 +429,21 @@ export function PlayerSection() {
     }
   };
 
+  const handleLoopShift = () => {
+    // Shift loop window forward: new A = old B, new B = song end.
+    // This starts a new loop section that begins where the old one ended.
+    const s = usePlayerStore.getState();
+    const newA = s.loopEnd ?? s.duration;
+    const newB = s.duration;
+    setLoopStart(newA);
+    setLoopEnd(newB);
+    if (isPlaying) {
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(newA);
+    }
+  };
+
   const handleLoopSetAValue = (val: number) => {
     const s = usePlayerStore.getState();
     const newStart = Math.max(0, Math.min(val, s.loopEnd ?? s.duration));
@@ -719,6 +734,7 @@ export function PlayerSection() {
         onLoopSetBValue={handleLoopSetBValue}
         onLoopAdjustA={handleLoopAdjustA}
         onLoopAdjustB={handleLoopAdjustB}
+        onLoopShift={handleLoopShift}
       />
     </section>
   );
