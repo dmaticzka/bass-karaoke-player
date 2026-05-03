@@ -294,18 +294,20 @@ export function PlaybackBar({
       {/* A point slider row */}
       <div className="ab-point-row" id="loop-a-row">
         <span className="ab-point-label">A</span>
-        {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
-          <button
-            key={delta}
-            className="btn btn-xs btn-secondary ab-adjust-btn"
-            title={`Move A point ${delta}s`}
-            aria-label={`Move A point ${delta} seconds`}
-            disabled={!loopEnabled}
-            onClick={() => onLoopAdjustA(delta)}
-          >
-            {delta}s
-          </button>
-        ))}
+        <div className="ab-adjust-neg">
+          {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
+            <button
+              key={delta}
+              className="btn btn-xs btn-secondary ab-adjust-btn"
+              title={`Move A point ${delta}s`}
+              aria-label={`Move A point ${delta} seconds`}
+              disabled={!loopEnabled}
+              onClick={() => onLoopAdjustA(delta)}
+            >
+              {delta}s
+            </button>
+          ))}
+        </div>
         <input
           id="loop-a-slider"
           type="range"
@@ -319,35 +321,39 @@ export function PlaybackBar({
           aria-label="Loop start (A point)"
         />
         <span className="ab-point-time">{fmtTime(effectiveA)}</span>
-        {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
-          <button
-            key={delta}
-            className="btn btn-xs btn-secondary ab-adjust-btn"
-            title={`Move A point +${delta}s`}
-            aria-label={`Move A point +${delta} seconds`}
-            disabled={!loopEnabled}
-            onClick={() => onLoopAdjustA(delta)}
-          >
-            +{delta}s
-          </button>
-        ))}
+        <div className="ab-adjust-pos">
+          {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
+            <button
+              key={delta}
+              className="btn btn-xs btn-secondary ab-adjust-btn"
+              title={`Move A point +${delta}s`}
+              aria-label={`Move A point +${delta} seconds`}
+              disabled={!loopEnabled}
+              onClick={() => onLoopAdjustA(delta)}
+            >
+              +{delta}s
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* B point slider row */}
       <div className="ab-point-row" id="loop-b-row">
         <span className="ab-point-label">B</span>
-        {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
-          <button
-            key={delta}
-            className="btn btn-xs btn-secondary ab-adjust-btn"
-            title={`Move B point ${delta}s`}
-            aria-label={`Move B point ${delta} seconds`}
-            disabled={!loopEnabled}
-            onClick={() => onLoopAdjustB(delta)}
-          >
-            {delta}s
-          </button>
-        ))}
+        <div className="ab-adjust-neg">
+          {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
+            <button
+              key={delta}
+              className="btn btn-xs btn-secondary ab-adjust-btn"
+              title={`Move B point ${delta}s`}
+              aria-label={`Move B point ${delta} seconds`}
+              disabled={!loopEnabled}
+              onClick={() => onLoopAdjustB(delta)}
+            >
+              {delta}s
+            </button>
+          ))}
+        </div>
         <input
           id="loop-b-slider"
           type="range"
@@ -361,18 +367,20 @@ export function PlaybackBar({
           aria-label="Loop end (B point)"
         />
         <span className="ab-point-time">{fmtTime(effectiveB)}</span>
-        {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
-          <button
-            key={delta}
-            className="btn btn-xs btn-secondary ab-adjust-btn"
-            title={`Move B point +${delta}s`}
-            aria-label={`Move B point +${delta} seconds`}
-            disabled={!loopEnabled}
-            onClick={() => onLoopAdjustB(delta)}
-          >
-            +{delta}s
-          </button>
-        ))}
+        <div className="ab-adjust-pos">
+          {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
+            <button
+              key={delta}
+              className="btn btn-xs btn-secondary ab-adjust-btn"
+              title={`Move B point +${delta}s`}
+              aria-label={`Move B point +${delta} seconds`}
+              disabled={!loopEnabled}
+              onClick={() => onLoopAdjustB(delta)}
+            >
+              +{delta}s
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

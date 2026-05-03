@@ -508,26 +508,32 @@ a:hover { text-decoration: underline; }
   pointer-events: none;
 }
 
-/* AB point slider rows */
+/* AB point slider rows — small screens (default): grid, slider above buttons */
 .ab-point-row {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "label slider time"
+    "neg   neg    pos";
+  column-gap: 0.3rem;
+  row-gap: 0.35rem;
   width: 100%;
   padding: 0.2rem 0;
 }
 .ab-point-label {
+  grid-area: label;
+  align-self: center;
   font-size: 0.8rem;
   font-weight: bold;
   color: var(--color-muted);
   width: 1rem;
-  flex-shrink: 0;
   text-align: center;
 }
 .ab-point-slider {
-  flex: 1;
+  grid-area: slider;
+  width: 100%;
   min-width: 0;
+  align-self: center;
   accent-color: var(--color-accent);
   height: 4px;
   cursor: ew-resize;
@@ -538,16 +544,61 @@ a:hover { text-decoration: underline; }
   cursor: not-allowed;
 }
 .ab-point-time {
+  grid-area: time;
+  align-self: center;
   font-size: 0.78rem;
   color: var(--color-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 3rem;
   text-align: center;
-  flex-shrink: 0;
+}
+/* Button groups */
+.ab-adjust-neg {
+  grid-area: neg;
+  display: flex;
+  gap: 0.3rem;
+  justify-content: flex-start;
+}
+.ab-adjust-pos {
+  grid-area: pos;
+  display: flex;
+  gap: 0.3rem;
+  justify-content: flex-end;
 }
 .ab-adjust-btn {
   flex-shrink: 0;
+}
+
+/* Large screens (≥ 600px): flatten back to a single flex row */
+@media (min-width: 600px) {
+  .ab-point-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-wrap: nowrap;
+    /* clear grid-template-areas */
+    grid-template-areas: unset;
+    grid-template-columns: unset;
+  }
+  /* Dissolve the wrapper divs into the flex row */
+  .ab-adjust-neg,
+  .ab-adjust-pos {
+    display: contents;
+  }
+  .ab-point-label {
+    width: 1rem;
+    flex-shrink: 0;
+  }
+  .ab-point-slider {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    align-self: auto;
+  }
+  .ab-point-time {
+    flex-shrink: 0;
+  }
 }
 
 @media (min-width: 600px) {
