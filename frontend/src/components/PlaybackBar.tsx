@@ -123,10 +123,6 @@ export function PlaybackBar({
   const effectiveA = loopStart ?? 0;
   const effectiveB = loopEnd ?? duration;
 
-  const loopLabel =
-    loopEnabled && loopStart !== null && loopEnd !== null
-      ? `A: ${fmtTime(loopStart)} – B: ${fmtTime(loopEnd)}`
-      : null;
 
   return (
     <div className="playback-controls">
@@ -284,11 +280,7 @@ export function PlaybackBar({
         >
           Clear
         </button>
-        {loopLabel && (
-          <span className="loop-display" id="loop-display">
-            {loopLabel}
-          </span>
-        )}
+
       </div>
 
       {/* A point slider row */}

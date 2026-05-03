@@ -497,7 +497,6 @@ a:hover { text-decoration: underline; }
 }
 #time-display { font-size: 0.85rem; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }
 .loop-controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-.loop-display { font-size: 0.82rem; color: var(--color-text); font-variant-numeric: tabular-nums; }
 .loop-range-indicator {
   position: absolute;
   top: 50%;
