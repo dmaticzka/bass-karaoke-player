@@ -19,12 +19,6 @@
   --transition: 0.2s ease;
   --touch-target: 44px;
 
-  /* Stem colours (muted, greyscale-friendly) */
-  --stem-drums: #c0c0c0;
-  --stem-bass: #909090;
-  --stem-vocals: #d8d8d8;
-  --stem-other: #a0a0a0;
-
   /* Nav heights */
   --header-height: 48px;
   --bottom-nav-height: 52px;
@@ -291,17 +285,6 @@ a:hover { text-decoration: underline; }
   overflow: visible;
   text-overflow: clip;
 }
-.song-status-badge {
-  font-size: 0.78rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 20px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.status-uploaded  { background: #444; color: #aaa; }
-.status-splitting { background: #555; color: #ddd; }
-.status-ready     { background: #4a4a4a; color: #ccc; }
-.status-error     { background: #5a3a3a; color: #eaa; }
 .song-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
 
 /* ---------- Global Controls ---------- */
@@ -512,7 +495,7 @@ a:hover { text-decoration: underline; }
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas:
-    "label slider time"
+    "label slider ."
     "neg   neg    pos";
   column-gap: 0.3rem;
   row-gap: 0.35rem;
@@ -525,8 +508,8 @@ a:hover { text-decoration: underline; }
   font-size: 0.8rem;
   font-weight: bold;
   color: var(--color-muted);
-  width: 1rem;
-  text-align: center;
+  white-space: nowrap;
+  text-align: left;
 }
 .ab-point-slider {
   grid-area: slider;
@@ -541,16 +524,6 @@ a:hover { text-decoration: underline; }
 .ab-point-slider:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-.ab-point-time {
-  grid-area: time;
-  align-self: center;
-  font-size: 0.78rem;
-  color: var(--color-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  min-width: 3rem;
-  text-align: center;
 }
 /* Button groups */
 .ab-adjust-neg {
@@ -594,9 +567,6 @@ a:hover { text-decoration: underline; }
     min-width: 0;
     width: auto;
     align-self: auto;
-  }
-  .ab-point-time {
-    flex-shrink: 0;
   }
 }
 
