@@ -118,12 +118,11 @@ describe("PlaybackBar", () => {
     expect(screen.getByRole("button", { name: "Clear B" })).not.toBeDisabled();
   });
 
-  it("shows A and B times in the slider rows when loop is active", () => {
+  it("shows A and B times in the slider row labels when loop is active", () => {
     usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 50 });
     render(<PlaybackBar {...defaultProps} />);
-    // The ab-point-time spans on the A and B slider rows show the current times
-    const timeCells = document.querySelectorAll(".ab-point-time");
-    expect(timeCells.length).toBe(2);
+    expect(screen.getByText("A: 0:10")).toBeInTheDocument();
+    expect(screen.getByText("B: 0:50")).toBeInTheDocument();
   });
 
   it("displays current time correctly", () => {

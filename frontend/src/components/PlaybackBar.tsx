@@ -285,7 +285,7 @@ export function PlaybackBar({
 
       {/* A point slider row */}
       <div className="ab-point-row" id="loop-a-row">
-        <span className="ab-point-label">A</span>
+        <span className="ab-point-label">A: {fmtTime(effectiveA)}</span>
         <div className="ab-adjust-neg">
           {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
             <button
@@ -312,7 +312,6 @@ export function PlaybackBar({
           onChange={(e) => onLoopSetAValue(Number(e.target.value))}
           aria-label="Loop start (A point)"
         />
-        <span className="ab-point-time">{fmtTime(effectiveA)}</span>
         <div className="ab-adjust-pos">
           {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
             <button
@@ -331,7 +330,7 @@ export function PlaybackBar({
 
       {/* B point slider row */}
       <div className="ab-point-row" id="loop-b-row">
-        <span className="ab-point-label">B</span>
+        <span className="ab-point-label">B: {fmtTime(effectiveB)}</span>
         <div className="ab-adjust-neg">
           {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
             <button
@@ -358,7 +357,6 @@ export function PlaybackBar({
           onChange={(e) => onLoopSetBValue(Number(e.target.value))}
           aria-label="Loop end (B point)"
         />
-        <span className="ab-point-time">{fmtTime(effectiveB)}</span>
         <div className="ab-adjust-pos">
           {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
             <button
