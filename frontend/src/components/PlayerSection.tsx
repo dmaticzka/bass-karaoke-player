@@ -65,6 +65,9 @@ export function PlayerSection() {
   const setLoopEnabled = usePlayerStore((s) => s.setLoopEnabled);
   const setLoopStart = usePlayerStore((s) => s.setLoopStart);
   const setLoopEnd = usePlayerStore((s) => s.setLoopEnd);
+  const pushLoopHistoryItem = usePlayerStore((s) => s.pushLoopHistoryItem);
+  const removeLoopHistoryItem = usePlayerStore((s) => s.removeLoopHistoryItem);
+  const clearLoopHistory = usePlayerStore((s) => s.clearLoopHistory);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
   const [isPrecalculating, setIsPrecalculating] = useState(false);
@@ -355,6 +358,7 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   // Loop controls
   // -----------------------------------------------------------------------
+
   const handleBack = () => {
     const target = loopEnabled ? (loopStart ?? 0) : 0;
     handleSeek(target);
@@ -477,6 +481,49 @@ export function PlayerSection() {
     const s = usePlayerStore.getState();
     const current = s.loopEnd ?? s.duration;
     handleLoopSetBValue(current + delta);
+  };
+
+  const handleAddCurrentToHistory = () => {
+    const s = usePlayerStore.getState();
+    if (s.loopStart === null && s.loopEnd === null) return;
+    pushLoopHistoryItem({ a: s.loopStart, b: s.loopEnd });
+  };
+
+  const handleRestoreHistoryItem = (index: number) => {
+    const s = usePlayerStore.getState();
+    const item = s.loopHistory[index];
+    if (!item) return;
+    setLoopStart(item.a);
+    setLoopEnd(item.b);
+    if (item.a !== null && item.b !== null) {
+      setLoopEnabled(true);
+    }
+    if (isPlaying) {
+      const newStart = item.a ?? 0;
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(newStart);
+    }
+  };
+
+  const handleRemoveCurrentInterval = () => {
+    setLoopStart(null);
+    setLoopEnd(null);
+    setLoopEnabled(false);
+    if (isPlaying) {
+      const offset = getCurrentPos();
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(offset);
+    }
+  };
+
+  const handleRemoveHistoryItem = (index: number) => {
+    removeLoopHistoryItem(index);
+  };
+
+  const handleClearLoopHistory = () => {
+    clearLoopHistory();
   };
 
   // -----------------------------------------------------------------------
@@ -616,6 +663,7 @@ export function PlayerSection() {
     setLoopEnabled(false);
     setLoopStart(null);
     setLoopEnd(null);
+    clearLoopHistory();
     initStemControls(activeSong.stems);
     setVersions([]);
 
@@ -735,6 +783,11 @@ export function PlayerSection() {
         onLoopAdjustA={handleLoopAdjustA}
         onLoopAdjustB={handleLoopAdjustB}
         onLoopShift={handleLoopShift}
+        onAddCurrentToHistory={handleAddCurrentToHistory}
+        onRemoveCurrentInterval={handleRemoveCurrentInterval}
+        onRestoreHistoryItem={handleRestoreHistoryItem}
+        onRemoveHistoryItem={handleRemoveHistoryItem}
+        onClearLoopHistory={handleClearLoopHistory}
       />
     </section>
   );

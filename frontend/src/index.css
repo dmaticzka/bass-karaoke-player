@@ -574,6 +574,96 @@ a:hover { text-decoration: underline; }
   .playback-buttons .btn { flex: 0 0 auto; }
 }
 
+/* Loop interval history list */
+.loop-history {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.loop-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.loop-history-header-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+.loop-history-title {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.loop-history-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  border: 1px solid rgba(160, 160, 160, 0.22);
+  background: rgba(160, 160, 160, 0.06);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.loop-history-item:hover {
+  background: rgba(160, 160, 160, 0.14);
+  border-color: rgba(160, 160, 160, 0.4);
+}
+.loop-history-item.current {
+  background: rgba(99, 179, 237, 0.1);
+  border: 1px solid rgba(99, 179, 237, 0.25);
+  cursor: default;
+}
+.loop-history-item.current:hover {
+  background: rgba(99, 179, 237, 0.1);
+  border-color: rgba(99, 179, 237, 0.25);
+}
+.loop-history-label {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  min-width: 2.5rem;
+}
+.loop-history-range {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.loop-history-restore {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+.loop-history-remove {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.loop-history-remove:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* ---------- Equalizer ---------- */
 #eq-section .card {
   padding: 1rem;
