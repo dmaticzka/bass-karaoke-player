@@ -636,6 +636,17 @@ a:hover { text-decoration: underline; }
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }
+.loop-history-restore {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
 .loop-history-remove {
   flex-shrink: 0;
   background: none;
