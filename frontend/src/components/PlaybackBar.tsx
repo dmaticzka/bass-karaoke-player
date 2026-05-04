@@ -440,13 +440,22 @@ export function PlaybackBar({
 
           {/* Archived intervals */}
           {loopHistory.map((item, i) => (
-            <div key={i} className="loop-history-item" id={`loop-history-item-${i}`}>
+            <div
+              key={i}
+              className="loop-history-item"
+              id={`loop-history-item-${i}`}
+              onClick={() => onRestoreHistoryItem(i)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onRestoreHistoryItem(i); }}
+              aria-label={`Restore interval ${i + 1}`}
+            >
               <span className="loop-history-label">#{i + 1}</span>
               <button
                 className="loop-history-restore"
-                aria-label={`Restore interval ${i + 1}`}
-                title={`Restore interval ${i + 1}`}
-                onClick={() => onRestoreHistoryItem(i)}
+                aria-hidden="true"
+                tabIndex={-1}
+                onClick={(e) => { e.stopPropagation(); onRestoreHistoryItem(i); }}
               >
                 {item.a !== null ? fmtTime(item.a) : "—"}
                 {" \u2013 "}
@@ -456,7 +465,7 @@ export function PlaybackBar({
                 className="loop-history-remove"
                 aria-label={`Remove interval ${i + 1}`}
                 title={`Remove interval ${i + 1}`}
-                onClick={() => onRemoveHistoryItem(i)}
+                onClick={(e) => { e.stopPropagation(); onRemoveHistoryItem(i); }}
               >
                 &times;
               </button>

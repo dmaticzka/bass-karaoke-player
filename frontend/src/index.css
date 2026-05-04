@@ -603,10 +603,23 @@ a:hover { text-decoration: underline; }
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   font-size: 0.82rem;
+  border: 1px solid rgba(160, 160, 160, 0.22);
+  background: rgba(160, 160, 160, 0.06);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.loop-history-item:hover {
+  background: rgba(160, 160, 160, 0.14);
+  border-color: rgba(160, 160, 160, 0.4);
 }
 .loop-history-item.current {
   background: rgba(99, 179, 237, 0.1);
   border: 1px solid rgba(99, 179, 237, 0.25);
+  cursor: default;
+}
+.loop-history-item.current:hover {
+  background: rgba(99, 179, 237, 0.1);
+  border-color: rgba(99, 179, 237, 0.25);
 }
 .loop-history-label {
   flex-shrink: 0;
