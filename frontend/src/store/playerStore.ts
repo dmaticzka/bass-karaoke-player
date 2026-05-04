@@ -29,6 +29,7 @@ interface PlayerState {
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
+  loopHistory: Array<{ a: number | null; b: number | null }>;
   // EQ
   eqMode: EqMode;
   activeStemForEq: string | null;
@@ -68,6 +69,10 @@ interface PlayerActions {
   setLoopEnabled: (v: boolean) => void;
   setLoopStart: (v: number | null) => void;
   setLoopEnd: (v: number | null) => void;
+  pushLoopHistoryItem: (item: { a: number | null; b: number | null }) => void;
+  removeLoopHistoryItem: (index: number) => void;
+  clearLoopHistory: () => void;
+  setLoopHistory: (items: Array<{ a: number | null; b: number | null }>) => void;
   setEqMode: (mode: EqMode) => void;
   setActiveStemForEq: (stem: string | null) => void;
   setGlobalEqBand: (bandIndex: number, gain: number) => void;
@@ -105,6 +110,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   loopEnabled: false,
   loopStart: null,
   loopEnd: null,
+  loopHistory: [],
   eqMode: "global",
   activeStemForEq: null,
   globalEq: DEFAULT_EQ_BANDS.map((b) => ({ ...b })),
@@ -149,6 +155,11 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   setLoopEnabled: (loopEnabled) => set({ loopEnabled }),
   setLoopStart: (loopStart) => set({ loopStart }),
   setLoopEnd: (loopEnd) => set({ loopEnd }),
+  pushLoopHistoryItem: (item) => set((s) => ({ loopHistory: [item, ...s.loopHistory] })),
+  removeLoopHistoryItem: (index) =>
+    set((s) => ({ loopHistory: s.loopHistory.filter((_, i) => i !== index) })),
+  clearLoopHistory: () => set({ loopHistory: [] }),
+  setLoopHistory: (loopHistory) => set({ loopHistory }),
   setEqMode: (eqMode) => set({ eqMode }),
   setActiveStemForEq: (activeStemForEq) => set({ activeStemForEq }),
   setGlobalEqBand: (bandIndex, gain) =>

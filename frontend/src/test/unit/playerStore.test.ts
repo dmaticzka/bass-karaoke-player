@@ -21,6 +21,7 @@ function resetStore() {
     loopEnabled: false,
     loopStart: null,
     loopEnd: null,
+    loopHistory: [],
     eqMode: "global",
     activeStemForEq: null,
     globalEq: DEFAULT_EQ_BANDS.map((b) => ({ ...b })),
@@ -236,6 +237,48 @@ describe("playerStore", () => {
     it("updates muted state for a single stem", () => {
       usePlayerStore.getState().setStemMuted("drums", true);
       expect(usePlayerStore.getState().stemMuted["drums"]).toBe(true);
+    });
+  });
+
+  describe("loopHistory", () => {
+    it("starts empty", () => {
+      expect(usePlayerStore.getState().loopHistory).toEqual([]);
+    });
+
+    it("pushLoopHistoryItem prepends to the list", () => {
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 10, b: 50 });
+      expect(usePlayerStore.getState().loopHistory).toEqual([{ a: 10, b: 50 }]);
+    });
+
+    it("pushLoopHistoryItem keeps newest entry first", () => {
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 10, b: 50 });
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 20, b: 60 });
+      expect(usePlayerStore.getState().loopHistory[0]).toEqual({ a: 20, b: 60 });
+      expect(usePlayerStore.getState().loopHistory[1]).toEqual({ a: 10, b: 50 });
+    });
+
+    it("removeLoopHistoryItem removes the item at the given index", () => {
+      usePlayerStore.setState({ loopHistory: [{ a: 5, b: 15 }, { a: 0, b: 5 }] });
+      usePlayerStore.getState().removeLoopHistoryItem(0);
+      expect(usePlayerStore.getState().loopHistory).toEqual([{ a: 0, b: 5 }]);
+    });
+
+    it("removeLoopHistoryItem leaves other items untouched", () => {
+      usePlayerStore.setState({ loopHistory: [{ a: 1, b: 2 }, { a: 3, b: 4 }, { a: 5, b: 6 }] });
+      usePlayerStore.getState().removeLoopHistoryItem(1);
+      expect(usePlayerStore.getState().loopHistory).toEqual([{ a: 1, b: 2 }, { a: 5, b: 6 }]);
+    });
+
+    it("clearLoopHistory empties the list", () => {
+      usePlayerStore.setState({ loopHistory: [{ a: 0, b: 10 }, { a: 5, b: 20 }] });
+      usePlayerStore.getState().clearLoopHistory();
+      expect(usePlayerStore.getState().loopHistory).toEqual([]);
+    });
+
+    it("setLoopHistory replaces the list", () => {
+      usePlayerStore.setState({ loopHistory: [{ a: 0, b: 10 }] });
+      usePlayerStore.getState().setLoopHistory([{ a: 30, b: 70 }, { a: 5, b: 15 }]);
+      expect(usePlayerStore.getState().loopHistory).toEqual([{ a: 30, b: 70 }, { a: 5, b: 15 }]);
     });
   });
 });
