@@ -400,24 +400,25 @@ export function PlaybackBar({
       <div className="loop-history" id="loop-history">
           <div className="loop-history-header">
             <span className="loop-history-title">Intervals</span>
-            <button
-              className="btn btn-xs btn-secondary"
-              id="loop-history-add-btn"
-              title="Add current interval to history"
-              onClick={onAddCurrentToHistory}
-            >
-              Add
-            </button>
-            {loopHistory.length > 0 && (
+            <div className="loop-history-header-actions">
+              <button
+                className="btn btn-xs btn-secondary"
+                id="loop-history-add-btn"
+                title="Add current interval to history"
+                onClick={onAddCurrentToHistory}
+              >
+                Add
+              </button>
               <button
                 className="btn btn-xs btn-secondary"
                 id="loop-history-clear-btn"
                 title="Clear all saved intervals"
+                disabled={loopHistory.length === 0}
                 onClick={onClearLoopHistory}
               >
                 Clear all
               </button>
-            )}
+            </div>
           </div>
 
           {/* Current interval */}

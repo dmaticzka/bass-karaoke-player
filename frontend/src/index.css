@@ -589,6 +589,10 @@ a:hover { text-decoration: underline; }
   justify-content: space-between;
   margin-bottom: 0.25rem;
 }
+.loop-history-header-actions {
+  display: flex;
+  gap: 0.3rem;
+}
 .loop-history-title {
   font-size: 0.75rem;
   font-weight: bold;
