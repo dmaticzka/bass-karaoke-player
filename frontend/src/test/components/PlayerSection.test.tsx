@@ -106,6 +106,7 @@ function resetStore() {
     loopEnabled: false,
     loopStart: null,
     loopEnd: null,
+    loopHistory: [],
     stemVolumes: {},
     stemMuted: {},
   });
@@ -822,6 +823,204 @@ describe("PlayerSection", () => {
       expect(alert.textContent).toMatch(/not available offline/i);
       // Loading indicator must be reset to false.
       expect(usePlayerStore.getState().isLoading).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Loop interval history — manual add/restore model
+  // ---------------------------------------------------------------------------
+
+  describe("loop interval history", () => {
+    // ── No automatic archiving ──────────────────────────────────────────────
+
+    it("Set A does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 50, startOffset: 30, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-a-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    it("Set B does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 5, loopEnd: 80, startOffset: 60, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-b-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    it("Shift does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 40, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-shift-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    it("Clear does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 5, loopEnd: 25, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-clear-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    it("Clear A does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 15, loopEnd: 60, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-clear-a-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    it("Clear B does not modify loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 50, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-clear-b-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    // ── Add button ──────────────────────────────────────────────────────────
+
+    it("Add button copies current interval onto the history list", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: true, loopStart: 10, loopEnd: 50, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-add-btn")!); });
+      const { loopHistory, loopStart, loopEnd } = usePlayerStore.getState();
+      expect(loopHistory).toHaveLength(1);
+      expect(loopHistory[0]).toEqual({ a: 10, b: 50 });
+      // current interval is unchanged
+      expect(loopStart).toBe(10);
+      expect(loopEnd).toBe(50);
+    });
+
+    it("Add button with blank current (null A and B) is a no-op", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({ loopEnabled: false, loopStart: null, loopEnd: null, loopHistory: [] });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-add-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    // ── Restore by clicking a history item ─────────────────────────────────
+
+    it("clicking a history item sets its A/B as the current interval and enables loop", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          loopEnabled: false,
+          loopStart: 5,
+          loopEnd: 20,
+          loopHistory: [{ a: 30, b: 70 }],
+        });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-item-0 .loop-history-restore")!); });
+      const s = usePlayerStore.getState();
+      expect(s.loopStart).toBe(30);
+      expect(s.loopEnd).toBe(70);
+      expect(s.loopEnabled).toBe(true);
+    });
+
+    it("clicking a history item when playing stops and restarts from restored A", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          isPlaying: true,
+          loopEnabled: true,
+          loopStart: 5,
+          loopEnd: 20,
+          loopHistory: [{ a: 40, b: 80 }],
+        });
+      });
+      const eng = await import("../../audio/engine");
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-item-0 .loop-history-restore")!); });
+      expect(eng.stopSources).toHaveBeenCalled();
+      expect(eng.playAll).toHaveBeenCalled();
+    });
+
+    // ── Remove current / history items ──────────────────────────────────────
+
+    it("removing current interval blanks A/B and disables loop, leaving history unchanged", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          loopEnabled: true,
+          loopStart: 10,
+          loopEnd: 50,
+          loopHistory: [{ a: 0, b: 10 }],
+        });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-current .loop-history-remove")!); });
+      const s = usePlayerStore.getState();
+      expect(s.loopStart).toBeNull();
+      expect(s.loopEnd).toBeNull();
+      expect(s.loopEnabled).toBe(false);
+      expect(s.loopHistory).toHaveLength(1); // history unchanged
+    });
+
+    it("removing a history item deletes that entry, leaving current unchanged", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          loopEnabled: true,
+          loopStart: 20,
+          loopEnd: 60,
+          loopHistory: [{ a: 5, b: 15 }, { a: 0, b: 5 }],
+        });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-item-0 .loop-history-remove")!); });
+      const s = usePlayerStore.getState();
+      expect(s.loopHistory).toHaveLength(1);
+      expect(s.loopHistory[0]).toEqual({ a: 0, b: 5 });
+      expect(s.loopStart).toBe(20); // current unchanged
+    });
+
+    it("Clear all history button empties loopHistory", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          loopEnabled: true,
+          loopStart: 10,
+          loopEnd: 50,
+          loopHistory: [{ a: 0, b: 10 }, { a: 5, b: 20 }],
+        });
+      });
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-clear-btn")!); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
+
+    // ── Song load ────────────────────────────────────────────────────────────
+
+    it("song load resets loopHistory to empty", async () => {
+      usePlayerStore.setState({
+        activeSong: readySong,
+        loopHistory: [{ a: 5, b: 25 }],
+      });
+      await act(async () => { render(<PlayerSection />); });
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
     });
   });
 });
