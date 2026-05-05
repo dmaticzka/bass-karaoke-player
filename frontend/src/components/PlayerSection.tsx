@@ -13,9 +13,11 @@ import { getSongArtist, getSongTitle } from "../utils/songDisplay";
 
 const POLL_MS = 2000;
 const LAST_SELECTED_VERSIONS_KEY = "bass-karaoke-player:last-selected-versions";
+const LOOP_HISTORY_KEY_PREFIX = "bass-karaoke-player:loop-history";
 
 type LastSelectedVersion = { pitch: number; tempo: number };
 type LastSelectedVersionsBySong = Record<string, LastSelectedVersion>;
+type LoopHistoryItem = { a: number | null; b: number | null };
 
 const readLastSelectedVersions = (): LastSelectedVersionsBySong => {
   try {
@@ -36,6 +38,35 @@ const readLastSelectedVersions = (): LastSelectedVersionsBySong => {
     return result;
   } catch {
     return {};
+  }
+};
+
+const readLoopHistory = (songId: string): LoopHistoryItem[] => {
+  try {
+    const raw = window.localStorage.getItem(`${LOOP_HISTORY_KEY_PREFIX}:${songId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is LoopHistoryItem =>
+        item !== null &&
+        typeof item === "object" &&
+        (item.a === null || typeof item.a === "number") &&
+        (item.b === null || typeof item.b === "number"),
+    );
+  } catch {
+    return [];
+  }
+};
+
+const persistLoopHistory = (songId: string, items: LoopHistoryItem[]): void => {
+  try {
+    window.localStorage.setItem(
+      `${LOOP_HISTORY_KEY_PREFIX}:${songId}`,
+      JSON.stringify(items),
+    );
+  } catch {
+    // ignore
   }
 };
 
@@ -68,6 +99,7 @@ export function PlayerSection() {
   const pushLoopHistoryItem = usePlayerStore((s) => s.pushLoopHistoryItem);
   const removeLoopHistoryItem = usePlayerStore((s) => s.removeLoopHistoryItem);
   const clearLoopHistory = usePlayerStore((s) => s.clearLoopHistory);
+  const setLoopHistory = usePlayerStore((s) => s.setLoopHistory);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
   const [isPrecalculating, setIsPrecalculating] = useState(false);
@@ -487,6 +519,7 @@ export function PlayerSection() {
     const s = usePlayerStore.getState();
     if (s.loopStart === null && s.loopEnd === null) return;
     pushLoopHistoryItem({ a: s.loopStart, b: s.loopEnd });
+    if (activeSong) persistLoopHistory(activeSong.id, usePlayerStore.getState().loopHistory);
   };
 
   const handleRestoreHistoryItem = (index: number) => {
@@ -520,10 +553,12 @@ export function PlayerSection() {
 
   const handleRemoveHistoryItem = (index: number) => {
     removeLoopHistoryItem(index);
+    if (activeSong) persistLoopHistory(activeSong.id, usePlayerStore.getState().loopHistory);
   };
 
   const handleClearLoopHistory = () => {
     clearLoopHistory();
+    if (activeSong) persistLoopHistory(activeSong.id, []);
   };
 
   // -----------------------------------------------------------------------
@@ -663,7 +698,7 @@ export function PlayerSection() {
     setLoopEnabled(false);
     setLoopStart(null);
     setLoopEnd(null);
-    clearLoopHistory();
+    setLoopHistory(readLoopHistory(activeSong.id));
     initStemControls(activeSong.stems);
     setVersions([]);
 

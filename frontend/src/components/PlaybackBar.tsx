@@ -398,81 +398,81 @@ export function PlaybackBar({
 
       {/* Loop interval history */}
       <div className="loop-history" id="loop-history">
-          <div className="loop-history-header">
-            <span className="loop-history-title">Intervals</span>
-            <div className="loop-history-header-actions">
-              <button
-                className="btn btn-xs btn-secondary"
-                id="loop-history-add-btn"
-                title="Add current interval to history"
-                onClick={onAddCurrentToHistory}
-              >
-                Add
-              </button>
-              <button
-                className="btn btn-xs btn-secondary"
-                id="loop-history-clear-btn"
-                title="Clear all saved intervals"
-                disabled={loopHistory.length === 0}
-                onClick={onClearLoopHistory}
-              >
-                Clear all
-              </button>
-            </div>
+        <div className="loop-history-header">
+          <span className="loop-history-title">Intervals</span>
+          <div className="loop-history-header-actions">
+            <button
+              className="btn btn-xs btn-secondary"
+              id="loop-history-add-btn"
+              title="Add current interval to history"
+              onClick={onAddCurrentToHistory}
+            >
+              Add
+            </button>
+            <button
+              className="btn btn-xs btn-secondary"
+              id="loop-history-clear-btn"
+              title="Clear all saved intervals"
+              disabled={loopHistory.length === 0}
+              onClick={onClearLoopHistory}
+            >
+              Clear all
+            </button>
           </div>
+        </div>
 
-          {/* Current interval */}
-          <div className="loop-history-item current" id="loop-history-current">
-            <span className="loop-history-label">Now</span>
-            <span className="loop-history-range">
-              {loopStart !== null ? fmtTime(loopStart) : "—"}
+        {/* Current interval */}
+        <div className="loop-history-item current" id="loop-history-current">
+          <span className="loop-history-label">Now</span>
+          <span className="loop-history-range">
+            {loopStart !== null ? fmtTime(loopStart) : "—"}
+            {" \u2013 "}
+            {loopEnd !== null ? fmtTime(loopEnd) : "—"}
+          </span>
+          <button
+            className="loop-history-remove"
+            aria-label="Remove current interval"
+            title="Remove current interval"
+            onClick={onRemoveCurrentInterval}
+          >
+            &times;
+          </button>
+        </div>
+
+        {/* Archived intervals */}
+        {loopHistory.map((item, i) => (
+          <div
+            key={i}
+            className="loop-history-item"
+            id={`loop-history-item-${i}`}
+            onClick={() => onRestoreHistoryItem(i)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onRestoreHistoryItem(i); }}
+            aria-label={`Restore interval ${i + 1}`}
+          >
+            <span className="loop-history-label">#{i + 1}</span>
+            <button
+              className="loop-history-restore"
+              aria-hidden="true"
+              tabIndex={-1}
+              onClick={(e) => { e.stopPropagation(); onRestoreHistoryItem(i); }}
+            >
+              {item.a !== null ? fmtTime(item.a) : "—"}
               {" \u2013 "}
-              {loopEnd !== null ? fmtTime(loopEnd) : "—"}
-            </span>
+              {item.b !== null ? fmtTime(item.b) : "—"}
+            </button>
             <button
               className="loop-history-remove"
-              aria-label="Remove current interval"
-              title="Remove current interval"
-              onClick={onRemoveCurrentInterval}
+              aria-label={`Remove interval ${i + 1}`}
+              title={`Remove interval ${i + 1}`}
+              onClick={(e) => { e.stopPropagation(); onRemoveHistoryItem(i); }}
             >
               &times;
             </button>
           </div>
-
-          {/* Archived intervals */}
-          {loopHistory.map((item, i) => (
-            <div
-              key={i}
-              className="loop-history-item"
-              id={`loop-history-item-${i}`}
-              onClick={() => onRestoreHistoryItem(i)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onRestoreHistoryItem(i); }}
-              aria-label={`Restore interval ${i + 1}`}
-            >
-              <span className="loop-history-label">#{i + 1}</span>
-              <button
-                className="loop-history-restore"
-                aria-hidden="true"
-                tabIndex={-1}
-                onClick={(e) => { e.stopPropagation(); onRestoreHistoryItem(i); }}
-              >
-                {item.a !== null ? fmtTime(item.a) : "—"}
-                {" \u2013 "}
-                {item.b !== null ? fmtTime(item.b) : "—"}
-              </button>
-              <button
-                className="loop-history-remove"
-                aria-label={`Remove interval ${i + 1}`}
-                title={`Remove interval ${i + 1}`}
-                onClick={(e) => { e.stopPropagation(); onRemoveHistoryItem(i); }}
-              >
-                &times;
-              </button>
-            </div>
-          ))}
-        </div>
+        ))}
+      </div>
     </div>
   );
 }

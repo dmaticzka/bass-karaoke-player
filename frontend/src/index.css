@@ -574,7 +574,7 @@ a:hover { text-decoration: underline; }
   .playback-buttons .btn { flex: 0 0 auto; }
 }
 
-/* Loop interval history list */
+/* ---------- Loop interval history ---------- */
 .loop-history {
   margin-top: 0.75rem;
   padding-top: 0.6rem;
