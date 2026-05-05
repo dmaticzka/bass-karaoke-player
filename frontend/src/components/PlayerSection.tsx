@@ -390,6 +390,7 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   // Loop controls
   // -----------------------------------------------------------------------
+
   const handleBack = () => {
     const target = loopEnabled ? (loopStart ?? 0) : 0;
     handleSeek(target);
@@ -521,18 +522,6 @@ export function PlayerSection() {
     if (activeSong) persistLoopHistory(activeSong.id, usePlayerStore.getState().loopHistory);
   };
 
-  const handleRemoveCurrentInterval = () => {
-    setLoopStart(null);
-    setLoopEnd(null);
-    setLoopEnabled(false);
-    if (isPlaying) {
-      const offset = getCurrentPos();
-      eng.stopSources();
-      eng.stopSeekTimer();
-      playAll(offset);
-    }
-  };
-
   const handleRestoreHistoryItem = (index: number) => {
     const s = usePlayerStore.getState();
     const item = s.loopHistory[index];
@@ -547,6 +536,18 @@ export function PlayerSection() {
       eng.stopSources();
       eng.stopSeekTimer();
       playAll(newStart);
+    }
+  };
+
+  const handleRemoveCurrentInterval = () => {
+    setLoopStart(null);
+    setLoopEnd(null);
+    setLoopEnabled(false);
+    if (isPlaying) {
+      const offset = getCurrentPos();
+      eng.stopSources();
+      eng.stopSeekTimer();
+      playAll(offset);
     }
   };
 

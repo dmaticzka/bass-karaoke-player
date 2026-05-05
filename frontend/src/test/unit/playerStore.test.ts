@@ -178,6 +178,33 @@ describe("playerStore", () => {
       expect(s.loopStart).toBe(5);
       expect(s.loopEnd).toBe(30);
     });
+
+    it("pushLoopHistoryItem prepends to loopHistory", () => {
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 10, b: 40 });
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 5, b: 20 });
+      const { loopHistory } = usePlayerStore.getState();
+      expect(loopHistory).toHaveLength(2);
+      expect(loopHistory[0]).toEqual({ a: 5, b: 20 }); // newest first
+      expect(loopHistory[1]).toEqual({ a: 10, b: 40 });
+    });
+
+    it("removeLoopHistoryItem removes the entry at the given index", () => {
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 0, b: 10 });
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 20, b: 40 });
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 50, b: 80 });
+      usePlayerStore.getState().removeLoopHistoryItem(1);
+      const { loopHistory } = usePlayerStore.getState();
+      expect(loopHistory).toHaveLength(2);
+      expect(loopHistory[0]).toEqual({ a: 50, b: 80 });
+      expect(loopHistory[1]).toEqual({ a: 0, b: 10 });
+    });
+
+    it("clearLoopHistory resets loopHistory to empty", () => {
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 0, b: 10 });
+      usePlayerStore.getState().pushLoopHistoryItem({ a: 20, b: 40 });
+      usePlayerStore.getState().clearLoopHistory();
+      expect(usePlayerStore.getState().loopHistory).toHaveLength(0);
+    });
   });
 
   describe("versions", () => {
