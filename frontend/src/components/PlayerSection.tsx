@@ -540,9 +540,10 @@ export function PlayerSection() {
   };
 
   const handleRemoveCurrentInterval = () => {
-    setLoopStart(null);
-    setLoopEnd(null);
-    setLoopEnabled(false);
+    // Reset interval to full song span but keep looping enabled.
+    setLoopStart(0);
+    setLoopEnd(duration);
+    setLoopEnabled(true);
     if (isPlaying) {
       const offset = getCurrentPos();
       eng.stopSources();
