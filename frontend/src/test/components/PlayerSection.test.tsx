@@ -961,9 +961,10 @@ describe("PlayerSection", () => {
 
     // ── Remove current interval ─────────────────────────────────────────────
 
-    it("removing current interval blanks A/B and disables loop, leaving history unchanged", async () => {
+    it("removing current interval resets A/B to song bounds and keeps loop enabled, leaving history unchanged", async () => {
       usePlayerStore.setState({ activeSong: readySong });
       await act(async () => { render(<PlayerSection />); });
+      // After render, duration is set by getDuration() mock = 100.
       await act(async () => {
         usePlayerStore.setState({
           loopEnabled: true,
@@ -974,10 +975,35 @@ describe("PlayerSection", () => {
       });
       await act(async () => { fireEvent.click(document.querySelector("#loop-history-current .loop-history-remove")!); });
       const s = usePlayerStore.getState();
-      expect(s.loopStart).toBeNull();
-      expect(s.loopEnd).toBeNull();
-      expect(s.loopEnabled).toBe(false);
+      expect(s.loopStart).toBe(0);           // reset to song start
+      expect(s.loopEnd).toBe(100);           // reset to song end (getDuration() = 100)
+      expect(s.loopEnabled).toBe(true);      // loop stays on
       expect(s.loopHistory).toHaveLength(1); // history unchanged
+    });
+
+    it("removing current interval while playing stops sources and restarts playback with loop active", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        usePlayerStore.setState({
+          isPlaying: true,
+          loopEnabled: true,
+          loopStart: 10,
+          loopEnd: 50,
+          loopHistory: [],
+        });
+      });
+      const eng = await import("../../audio/engine");
+      vi.mocked(eng.stopSources).mockClear();
+      vi.mocked(eng.playAll).mockClear();
+      await act(async () => { fireEvent.click(document.querySelector("#loop-history-current .loop-history-remove")!); });
+      expect(eng.stopSources).toHaveBeenCalled();
+      expect(eng.playAll).toHaveBeenCalled();
+      // Loop must still be enabled and span full song after removal
+      const s = usePlayerStore.getState();
+      expect(s.loopEnabled).toBe(true);
+      expect(s.loopStart).toBe(0);
+      expect(s.loopEnd).toBe(100);
     });
 
     // ── Remove a history item ───────────────────────────────────────────────
