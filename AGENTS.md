@@ -34,20 +34,10 @@ Examples:
 
 ## Completing Development Work
 
-Every session of development work must conclude with the following two steps, in order:
-
-### 1. Build the Docker image
+Every session of development work must conclude with a build of the docker image
 
 ```
 time docker build . --tag ghcr.io/dmaticzka/bass-karaoke-player:dev
 ```
 
 Run from the repository root (`/var/home/tzk/co/bass-karaoke-player`).
-
-### 2. Deploy via docker compose
-
-```
-docker compose up
-```
-
-Run from `../heimdal/workloads/bkpdev` (relative to the repository root).
