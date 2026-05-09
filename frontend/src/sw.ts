@@ -4,7 +4,8 @@
  *
  * Two cache layers:
  *   bass-karaoke-shell-v1  – precached app shell (HTML, JS, CSS, assets)
- *   bass-karaoke-stems-v1  – runtime-cached stem audio (CacheFirst, survives SW updates)
+ *   bass-karaoke-stems-v1  – runtime-cached stem audio and original audio
+ *                            (CacheFirst, survives SW updates)
  *
  * An additional network-first cache for the song-list API response allows the
  * library page to load offline after a prior online visit.
@@ -28,6 +29,7 @@ import {
 } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { isStemsCacheRoute } from "./swRoutes";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -64,13 +66,11 @@ registerRoute(
 );
 
 // ---------------------------------------------------------------------------
-// Runtime caching – stem audio (CacheFirst, cache persists across SW updates)
+// Runtime caching – stem audio + original audio (CacheFirst, persists across SW updates)
 // ---------------------------------------------------------------------------
 
 registerRoute(
-  ({ url }) =>
-    url.pathname.startsWith("/api/songs/") &&
-    url.pathname.includes("/stems/"),
+  ({ url }) => isStemsCacheRoute(url.pathname),
   new CacheFirst({
     cacheName: "bass-karaoke-stems-v1",
     plugins: [

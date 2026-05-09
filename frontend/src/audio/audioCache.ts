@@ -1,15 +1,15 @@
 /**
- * Stem audio fetch utilities.
+ * Stem and original-audio fetch utilities.
  *
- * The Service Worker (sw.ts) transparently caches stem responses in the
- * `bass-karaoke-stems-v1` Cache Storage bucket using a CacheFirst strategy.
- * No in-memory or manual Cache Storage layer is needed here – the browser's
- * fetch pipeline handles both the in-flight de-duplication and the persistent
- * offline cache.
+ * The Service Worker (sw.ts) transparently caches stem and original-audio
+ * responses in the `bass-karaoke-stems-v1` Cache Storage bucket using a
+ * CacheFirst strategy.  No in-memory or manual Cache Storage layer is needed
+ * here – the browser's fetch pipeline handles both the in-flight
+ * de-duplication and the persistent offline cache.
  *
- * Use {@link fetchWithCache} to load stems; the SW will serve from cache on
+ * Use {@link fetchWithCache} to load audio; the SW will serve from cache on
  * repeat requests and after page reloads.  Use {@link hasCached} to check
- * whether all stem URLs for a given version are already available offline.
+ * whether all audio URLs for a given version are already available offline.
  */
 
 /** Name of the Cache Storage bucket used by the SW for stem audio. */
