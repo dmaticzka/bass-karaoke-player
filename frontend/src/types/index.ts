@@ -2,7 +2,7 @@
 
 export type StemName = "drums" | "bass" | "vocals" | "other";
 
-export type SongStatus = "uploaded" | "splitting" | "ready" | "error";
+export type SongStatus = "uploaded" | "queued" | "splitting" | "ready" | "error";
 
 // "processing" is a frontend-only optimistic status (not in VersionStatus enum)
 export type VersionStatus = "ready" | "partial" | "missing" | "processing";
