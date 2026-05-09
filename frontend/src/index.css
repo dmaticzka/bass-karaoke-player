@@ -341,7 +341,8 @@ a:hover { text-decoration: underline; }
   flex-wrap: wrap;
   gap: 0.4rem;
 }
-.version-item {
+.version-item,
+.original-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -354,8 +355,10 @@ a:hover { text-decoration: underline; }
   transition: border-color var(--transition), background var(--transition);
   white-space: nowrap;
 }
-.version-item:hover { border-color: var(--color-accent); }
-.version-item.active { border-color: var(--color-accent); background: rgba(255,255,255,0.06); font-weight: 600; }
+.version-item:hover,
+.original-item:hover { border-color: var(--color-accent); }
+.version-item.active,
+.original-item.active { border-color: var(--color-accent); background: rgba(255,255,255,0.06); font-weight: 600; }
 .version-delete-btn {
   background: none;
   border: none;

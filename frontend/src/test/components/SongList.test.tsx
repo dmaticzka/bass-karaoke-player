@@ -14,6 +14,7 @@ vi.mock("../../api/client", () => ({
     deleteSong: vi.fn().mockResolvedValue(undefined),
     getSongs: vi.fn().mockResolvedValue({ songs: [] }),
     stemUrl: vi.fn().mockImplementation((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
+    originalAudioUrl: vi.fn().mockImplementation((id: string) => `/api/songs/${id}/original-audio`),
   },
 }));
 

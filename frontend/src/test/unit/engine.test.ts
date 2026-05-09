@@ -309,3 +309,81 @@ describe("currentTime", () => {
     expect(typeof t).toBe("number");
   });
 });
+
+// ---------------------------------------------------------------------------
+// wireOriginalNode / clearOriginalNode
+// ---------------------------------------------------------------------------
+
+describe("wireOriginalNode", () => {
+  it("stores the buffer and allows getDuration to return its duration", () => {
+    eng.getOrCreateCtx();
+    const buf = makeAudioBuffer(120);
+    eng.wireOriginalNode(buf);
+    expect(eng.getDuration()).toBe(120);
+  });
+
+  it("connects to AudioContext destination", () => {
+    eng.getOrCreateCtx();
+    const buf = makeAudioBuffer(60);
+    eng.wireOriginalNode(buf);
+    // The gain node created for original should have connected to destination.
+    expect(mockCtx.createGain).toHaveBeenCalled();
+  });
+
+  it("replaces any existing original buffer when called again", () => {
+    eng.getOrCreateCtx();
+    eng.wireOriginalNode(makeAudioBuffer(10));
+    eng.wireOriginalNode(makeAudioBuffer(99));
+    expect(eng.getDuration()).toBe(99);
+  });
+
+  it("getDuration prefers stems over original when both are present", () => {
+    eng.getOrCreateCtx();
+    eng.wireOriginalNode(makeAudioBuffer(200));
+    eng.wireStemNode("bass", makeAudioBuffer(45), 1.0, flatBands);
+    // stems win because getDuration reads from stemNodes first
+    expect(eng.getDuration()).toBe(45);
+  });
+});
+
+describe("clearOriginalNode", () => {
+  it("removes the original buffer so getDuration returns 0", () => {
+    eng.getOrCreateCtx();
+    eng.wireOriginalNode(makeAudioBuffer(80));
+    eng.clearOriginalNode();
+    expect(eng.getDuration()).toBe(0);
+  });
+
+  it("is a no-op when no original node exists", () => {
+    expect(() => eng.clearOriginalNode()).not.toThrow();
+  });
+});
+
+describe("playAll with original node", () => {
+  it("starts the original source when no stems are wired", () => {
+    eng.getOrCreateCtx();
+    const buf = makeAudioBuffer(60);
+    eng.wireOriginalNode(buf);
+    eng.playAll(5, false, null, null);
+    // A BufferSource should have been created and started.
+    expect(mockCtx.createBufferSource).toHaveBeenCalled();
+  });
+});
+
+describe("stopSources with original node", () => {
+  it("stops the original source without throwing", () => {
+    eng.getOrCreateCtx();
+    eng.wireOriginalNode(makeAudioBuffer(60));
+    eng.playAll(0, false, null, null);
+    expect(() => eng.stopSources()).not.toThrow();
+  });
+});
+
+describe("_resetForTesting clears original node", () => {
+  it("getDuration returns 0 after reset even if original was wired", () => {
+    eng.getOrCreateCtx();
+    eng.wireOriginalNode(makeAudioBuffer(50));
+    eng._resetForTesting();
+    expect(eng.getDuration()).toBe(0);
+  });
+});

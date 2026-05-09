@@ -316,6 +316,164 @@ class TestGetStem:
 
 
 # ---------------------------------------------------------------------------
+# Original audio endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestGetOriginalAudio:
+    """Tests for GET /api/songs/{song_id}/original-audio."""
+
+    def _make_song_with_original(
+        self,
+        data_dir: Path,
+        filename: str = "track.mp3",
+        status: SongStatus = SongStatus.READY,
+    ) -> "Song":
+        from backend.app.models import Song
+        from backend.app.storage import SongStorage
+
+        storage = SongStorage(data_dir)
+        song = Song(id="orig-song", filename=filename, status=status)
+        storage.save_song(song)
+        orig_path = storage.upload_path(song.id, filename)
+        orig_path.write_bytes(b"\x00" * 32)
+        return song
+
+    def test_get_original_audio_ok(self, client: TestClient, data_dir: Path) -> None:
+        """Returns 200 and the audio bytes for a ready song."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert resp.content == b"\x00" * 32
+
+    def test_get_original_audio_works_while_splitting(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Returns 200 even when the song status is 'splitting' (not yet ready)."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, status=SongStatus.SPLITTING)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+
+    def test_get_original_audio_works_while_queued(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Returns 200 when status is 'queued' (upload complete but not split yet)."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, status=SongStatus.QUEUED)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+
+    def test_get_original_audio_404_song_not_found(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Returns 404 when the song id does not exist."""
+        import backend.app.main as main_module
+
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get("/api/songs/nonexistent/original-audio")
+        assert resp.status_code == 404
+
+    def test_get_original_audio_404_file_missing(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Returns 404 when the original file has been removed from disk."""
+        import backend.app.main as main_module
+        from backend.app.models import Song
+        from backend.app.storage import SongStorage
+
+        storage = SongStorage(data_dir)
+        song = Song(id="no-file-song", filename="gone.mp3", status=SongStatus.READY)
+        storage.save_song(song)
+        # Do NOT write the file — original_dir exists but is empty.
+        storage.original_dir(song.id).mkdir(parents=True, exist_ok=True)
+        main_module.storage = storage
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 404
+
+    def test_get_original_audio_content_type_mp3(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Serves audio/mpeg for .mp3 files."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, filename="track.mp3")
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert "audio/mpeg" in resp.headers["content-type"]
+
+    def test_get_original_audio_content_type_wav(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Serves audio/wav for .wav files."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, filename="track.wav")
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert "audio/wav" in resp.headers["content-type"]
+
+    def test_get_original_audio_content_type_flac(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Serves audio/flac for .flac files."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, filename="track.flac")
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert "audio/flac" in resp.headers["content-type"]
+
+    def test_get_original_audio_content_type_ogg(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Serves audio/ogg for .ogg files."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, filename="track.ogg")
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert "audio/ogg" in resp.headers["content-type"]
+
+    def test_get_original_audio_content_type_m4a(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Serves audio/mp4 for .m4a files."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir, filename="track.m4a")
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        assert "audio/mp4" in resp.headers["content-type"]
+
+    def test_get_original_audio_cache_control_header(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Sets long-lived immutable Cache-Control header."""
+        import backend.app.main as main_module
+
+        song = self._make_song_with_original(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        resp = client.get(f"/api/songs/{song.id}/original-audio")
+        assert resp.status_code == 200
+        cc = resp.headers.get("cache-control", "")
+        assert "public" in cc
+        assert "immutable" in cc
+
+
+# ---------------------------------------------------------------------------
 # Process stem
 # ---------------------------------------------------------------------------
 

@@ -16,6 +16,7 @@ vi.mock("../../api/client", () => ({
     processStem: vi.fn(),
     stemUrl: vi.fn((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
     processedStemUrl: vi.fn(),
+    originalAudioUrl: vi.fn((id: string) => `/api/songs/${id}/original-audio`),
   },
 }));
 

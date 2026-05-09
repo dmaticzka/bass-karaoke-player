@@ -50,6 +50,16 @@ FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "frontend/dist"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ALLOWED_AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_UPLOAD_BYTES = 300 * 1024 * 1024  # 300 MB
+
+# MIME types for original audio files served as-is.
+ORIGINAL_AUDIO_CONTENT_TYPES: dict[str, str] = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+}
 MAX_VERSIONS_GLOBAL = int(os.getenv("MAX_VERSIONS_GLOBAL", "50"))
 # Maximum number of stem-splitting jobs that may run concurrently.
 # Additional uploads are queued (status "queued") until a slot is free.
@@ -497,6 +507,36 @@ def _song_router() -> APIRouter:
         return FileResponse(
             path,
             media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+
+    @router.get(
+        "/songs/{song_id}/original-audio",
+        responses={
+            200: {"content": {"audio/*": {}}},
+            404: {"model": ErrorResponse},
+        },
+    )
+    async def get_original_audio(song_id: str) -> FileResponse:
+        """Stream the original uploaded audio file, regardless of split status.
+
+        Available as soon as the upload completes — before or during stem
+        splitting.  This lets users play the unmodified source file while
+        waiting for the split to finish.
+        """
+        song = storage.load_song(song_id)
+        if song is None:
+            raise HTTPException(status_code=404, detail="Song not found.")
+        path = storage.original_file_path(song_id)
+        if path is None:
+            raise HTTPException(
+                status_code=404, detail="Original audio file not found on disk."
+            )
+        suffix = path.suffix.lower()
+        media_type = ORIGINAL_AUDIO_CONTENT_TYPES.get(suffix, "application/octet-stream")
+        return FileResponse(
+            path,
+            media_type=media_type,
             headers={"Cache-Control": "public, max-age=31536000, immutable"},
         )
 

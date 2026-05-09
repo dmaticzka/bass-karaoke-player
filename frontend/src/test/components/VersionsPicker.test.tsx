@@ -17,6 +17,7 @@ vi.mock("../../api/client", () => ({
       (_id: string, stem: string, pitch: number, tempo: number) =>
         `/api/songs/s1/stems/${stem}/processed?pitch=${pitch}&tempo=${tempo}`,
     ),
+    originalAudioUrl: vi.fn().mockImplementation((id: string) => `/api/songs/${id}/original-audio`),
   },
 }));
 
@@ -41,11 +42,12 @@ const processingVersion: Version = {
   status: "processing",
 };
 
-function resetStore(versions: Version[] = [], activePitch = 0, activeTempo = 1.0) {
+function resetStore(versions: Version[] = [], activePitch = 0, activeTempo = 1.0, isOriginalActive = false) {
   usePlayerStore.setState({
     versions,
     activeVersion: { pitch: activePitch, tempo: activeTempo },
     activeSong: { id: "s1", filename: "test.mp3", artist: null, title: null, status: "ready", stems: [] },
+    isOriginalActive,
   });
 }
 
@@ -60,6 +62,31 @@ describe("VersionsPicker", () => {
     expect(document.querySelector("#versions-section")).not.toBeInTheDocument();
   });
 
+  it("renders an Original bubble even when versions list is empty", () => {
+    render(<VersionsPicker onSelectVersion={vi.fn()} />);
+    expect(document.querySelector(".original-item")).toBeInTheDocument();
+  });
+
+  it("Original bubble has active class when isOriginalActive is true", () => {
+    resetStore([], 0, 1.0, true);
+    render(<VersionsPicker onSelectVersion={vi.fn()} />);
+    expect(document.querySelector(".original-item.active")).toBeInTheDocument();
+  });
+
+  it("Original bubble does not have active class when isOriginalActive is false", () => {
+    resetStore([], 0, 1.0, false);
+    render(<VersionsPicker onSelectVersion={vi.fn()} />);
+    expect(document.querySelector(".original-item")).toBeInTheDocument();
+    expect(document.querySelector(".original-item.active")).not.toBeInTheDocument();
+  });
+
+  it("clicking the Original bubble calls onSelectOriginal", () => {
+    const onSelectOriginal = vi.fn();
+    render(<VersionsPicker onSelectVersion={vi.fn()} onSelectOriginal={onSelectOriginal} />);
+    fireEvent.click(screen.getByText("Original"));
+    expect(onSelectOriginal).toHaveBeenCalledTimes(1);
+  });
+
   it("renders a list item per version", () => {
     resetStore([defaultVersion, customVersion]);
     render(<VersionsPicker onSelectVersion={vi.fn()} />);
@@ -70,6 +97,12 @@ describe("VersionsPicker", () => {
     resetStore([defaultVersion]);
     render(<VersionsPicker onSelectVersion={vi.fn()} />);
     expect(screen.getByText(/Original/)).toBeInTheDocument();
+  });
+
+  it("shows 'Stems' label for the default version in the versions list", () => {
+    resetStore([defaultVersion]);
+    render(<VersionsPicker onSelectVersion={vi.fn()} />);
+    expect(screen.getByText("Stems")).toBeInTheDocument();
   });
 
   it("shows pitch and tempo label for non-default version", () => {
@@ -248,6 +281,27 @@ describe("VersionsPicker", () => {
         await Promise.resolve();
       });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Original bubble cache indicator", () => {
+    it("adds version-cached class to Original bubble when original audio is cached", async () => {
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.hasCached).mockResolvedValue(true);
+      resetStore();
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await waitFor(() => {
+        expect(document.querySelector(".original-item.version-cached")).toBeInTheDocument();
+      });
+    });
+
+    it("does not add version-cached class to Original bubble when original audio is not cached", async () => {
+      const audioCache = await import("../../audio/audioCache");
+      vi.mocked(audioCache.hasCached).mockResolvedValue(false);
+      resetStore();
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      await act(async () => { await Promise.resolve(); });
+      expect(document.querySelector(".original-item.version-cached")).not.toBeInTheDocument();
     });
   });
 });
