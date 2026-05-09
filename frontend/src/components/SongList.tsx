@@ -96,11 +96,11 @@ export function SongList({ onLoadSong }: Props) {
               </span>
 
               <div className="song-actions">
-                {(song.status === "ready" || song.status === "splitting") && (
+                {(song.status === "ready" || song.status === "splitting" || song.status === "queued") && (
                   <button
                     className={[
                       "btn btn-sm btn-primary song-load-btn",
-                      song.status === "splitting" ? "status-splitting" : "",
+                      song.status === "splitting" || song.status === "queued" ? "status-splitting" : "",
                       cachedSongIds.has(song.id) ? "song-cached" : "",
                     ]
                       .filter(Boolean)

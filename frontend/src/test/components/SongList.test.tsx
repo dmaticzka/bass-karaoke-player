@@ -36,6 +36,15 @@ const splittingSong: Song = {
   stems: [],
 };
 
+const queuedSong: Song = {
+  id: "s4",
+  filename: "queued.mp3",
+  artist: "Queued Artist",
+  title: "Queued Title",
+  status: "queued",
+  stems: [],
+};
+
 const errorSong: Song = {
   id: "s3",
   filename: "error_song.mp3",
@@ -191,5 +200,33 @@ describe("SongList", () => {
     });
     expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "vocals");
     expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "bass");
+  });
+
+  it("shows enabled 'Load' button for queued song", () => {
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    const btn = screen.getByText("Load");
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("queued button has status-splitting class (pulsates)", () => {
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    expect(document.querySelector(".song-load-btn.status-splitting")).toBeInTheDocument();
+  });
+
+  it("calls onLoadSong with the song when Load is clicked for a queued song", () => {
+    const onLoadSong = vi.fn();
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={onLoadSong} />);
+    fireEvent.click(screen.getByText("Load"));
+    expect(onLoadSong).toHaveBeenCalledWith(queuedSong);
+  });
+
+  it("shows Load button for ready, splitting, and queued songs", () => {
+    resetStore([readySong, splittingSong, queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    expect(screen.getAllByText("Load")).toHaveLength(3);
   });
 });
