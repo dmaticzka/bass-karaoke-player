@@ -379,7 +379,8 @@ a:hover { text-decoration: underline; }
 }
 .version-item.status-processing { animation: pulse 1.2s ease-in-out infinite; }
 .version-status-badge.status-partial { background: #4a4a4a; color: #ccc; }
-.version-item.version-cached { border-left: 3px solid var(--color-accent); padding-left: calc(0.65rem - 3px); }
+.version-item.version-cached,
+.original-item.version-cached { border-left: 3px solid var(--color-accent); padding-left: calc(0.65rem - 3px); }
 
 /* ---------- Song list load-button states ---------- */
 .song-load-btn.status-splitting { animation: pulse 1.2s ease-in-out infinite; }
