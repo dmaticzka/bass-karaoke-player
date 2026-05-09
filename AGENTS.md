@@ -34,10 +34,30 @@ Examples:
 
 ## Completing Development Work
 
-Every session of development work must conclude with a build of the docker image
+Before building the Docker image, run all individual build and test steps first to catch errors quickly without a full Docker build cycle.
+
+### 1. Frontend (run from `frontend/`)
+
+```
+npm test
+npm run build
+```
+
+`npm run build` runs `tsc -b && vite build` — the TypeScript compiler (`tsc`) will catch type errors that would otherwise only surface inside the Docker build.
+
+### 2. Backend (run from repository root)
+
+```
+uv run ruff check backend/
+uv run ruff format --check backend/
+uv run mypy backend/app/ --ignore-missing-imports
+uv run pytest
+```
+
+### 3. Docker image (run from repository root)
+
+Only after all of the above pass:
 
 ```
 time docker build . --tag ghcr.io/dmaticzka/bass-karaoke-player:dev
 ```
-
-Run from the repository root (`/var/home/tzk/co/bass-karaoke-player`).
