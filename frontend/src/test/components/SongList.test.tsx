@@ -73,12 +73,12 @@ describe("SongList", () => {
     expect(document.querySelector(".song-status-badge")).not.toBeInTheDocument();
   });
 
-  it("shows disabled 'Splitting…' button for splitting song", () => {
+  it("shows enabled 'Load' button for splitting song", () => {
     resetStore([splittingSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    const btn = screen.getByText("Splitting…");
+    const btn = screen.getByText("Load");
     expect(btn).toBeInTheDocument();
-    expect(btn).toBeDisabled();
+    expect(btn).not.toBeDisabled();
   });
 
   it("splitting button has status-splitting class (pulsates)", () => {
@@ -93,18 +93,26 @@ describe("SongList", () => {
     expect(document.querySelector(".song-load-btn")).not.toBeInTheDocument();
   });
 
-  it("shows Load button only for ready songs", () => {
+  it("shows Load button for both ready and splitting songs", () => {
     resetStore([readySong, splittingSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    expect(screen.getAllByText("Load")).toHaveLength(1);
+    expect(screen.getAllByText("Load")).toHaveLength(2);
   });
 
-  it("calls onLoadSong with the song when Load is clicked", () => {
+  it("calls onLoadSong with the song when Load is clicked for a ready song", () => {
     const onLoadSong = vi.fn();
     resetStore([readySong]);
     render(<SongList onLoadSong={onLoadSong} />);
     fireEvent.click(screen.getByText("Load"));
     expect(onLoadSong).toHaveBeenCalledWith(readySong);
+  });
+
+  it("calls onLoadSong with the song when Load is clicked for a splitting song", () => {
+    const onLoadSong = vi.fn();
+    resetStore([splittingSong]);
+    render(<SongList onLoadSong={onLoadSong} />);
+    fireEvent.click(screen.getByText("Load"));
+    expect(onLoadSong).toHaveBeenCalledWith(splittingSong);
   });
 
   it("marks active song row with 'active' class", () => {

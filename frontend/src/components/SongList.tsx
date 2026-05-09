@@ -105,14 +105,9 @@ export function SongList({ onLoadSong }: Props) {
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={song.status === "ready" ? () => onLoadSong(song) : undefined}
-                    disabled={song.status === "splitting"}
+                    onClick={() => onLoadSong(song)}
                   >
-                    {song.status === "splitting"
-                      ? "Splitting…"
-                      : activeSong?.id === song.id
-                        ? "Active"
-                        : "Load"}
+                    {activeSong?.id === song.id ? "Active" : "Load"}
                   </button>
                 )}
                 <button
