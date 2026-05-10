@@ -22,6 +22,7 @@ export function VersionsPicker({ onSelectVersion, onSelectOriginal }: Props) {
   // Track which version keys are cached in the SW stem cache.
   const [cachedKeys, setCachedKeys] = useState<Set<string>>(new Set());
   const [isOriginalCached, setIsOriginalCached] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (!activeSong || activeSong.stems.length === 0) {
@@ -100,18 +101,10 @@ export function VersionsPicker({ onSelectVersion, onSelectOriginal }: Props) {
     </li>
   );
 
-  if (versions.length === 0) {
-    return (
-      <div className="versions-section" id="versions-section">
-        <h3 className="sub-section-heading">Song Versions</h3>
-        <ul className="versions-list">{originalBubble}</ul>
-      </div>
-    );
-  }
-
-  return (
-    <div className="versions-section" id="versions-section">
-      <h3 className="sub-section-heading">Song Versions</h3>
+  const list =
+    versions.length === 0 ? (
+      <ul className="versions-list">{originalBubble}</ul>
+    ) : (
       <ul className="versions-list" id="versions-list">
         {originalBubble}
         {versions.map((ver) => {
@@ -174,6 +167,25 @@ export function VersionsPicker({ onSelectVersion, onSelectOriginal }: Props) {
           );
         })}
       </ul>
+    );
+
+  return (
+    <div className="versions-section" id="versions-section">
+      <div
+        className="collapsible-header"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <h3 className="sub-section-heading">Song Versions</h3>
+        <button
+          className="collapsible-toggle"
+          aria-label={collapsed ? "Expand song versions" : "Collapse song versions"}
+        >
+          <span className={`chevron${collapsed ? " collapsed" : ""}`}>▼</span>
+        </button>
+      </div>
+      <div className={`collapsible-body ${collapsed ? "collapsed" : "expanded"}`}>
+        {list}
+      </div>
     </div>
   );
 }

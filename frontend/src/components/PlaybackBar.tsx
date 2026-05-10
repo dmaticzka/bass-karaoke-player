@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { LoaderCircle, Pause, Play, SkipBack, Square } from "lucide-react";
 import { usePlayerStore } from "../store/playerStore";
 
@@ -136,6 +137,8 @@ export function PlaybackBar({
   const effectiveA = loopStart ?? 0;
   const effectiveB = loopEnd ?? duration;
 
+  const [loopCollapsed, setLoopCollapsed] = useState(false);
+
 
   return (
     <div className="playback-controls">
@@ -239,7 +242,19 @@ export function PlaybackBar({
       </div>
       </div>
 
-      <h3 className="sub-section-heading">AB Loop</h3>
+      <div
+        className="collapsible-header"
+        onClick={() => setLoopCollapsed(!loopCollapsed)}
+      >
+        <h3 className="sub-section-heading">AB Loop</h3>
+        <button
+          className="collapsible-toggle"
+          aria-label={loopCollapsed ? "Expand AB loop" : "Collapse AB loop"}
+        >
+          <span className={`chevron${loopCollapsed ? " collapsed" : ""}`}>▼</span>
+        </button>
+      </div>
+      <div className={`collapsible-body ${loopCollapsed ? "collapsed" : "expanded"}`}>
       <div className="loop-controls" id="loop-controls">
         <button
           id="loop-toggle-btn"
@@ -474,6 +489,7 @@ export function PlaybackBar({
           </div>
         ))}
       </div>
+      </div>{/* collapsible-body */}
     </div>
   );
 }

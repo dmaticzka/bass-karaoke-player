@@ -284,6 +284,49 @@ describe("VersionsPicker", () => {
     });
   });
 
+  describe("collapsible header", () => {
+    it("renders a collapsible-header wrapping the Song Versions title", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-header")).toBeInTheDocument();
+    });
+
+    it("versions body is expanded by default", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("clicking the collapsible header collapses the versions body", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-body.collapsed")).toBeInTheDocument();
+    });
+
+    it("clicking the collapsible header again expands the versions body", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      const header = document.querySelector(".collapsible-header")!;
+      fireEvent.click(header);
+      fireEvent.click(header);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("toggle button has aria-label 'Collapse song versions' when expanded", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Collapse song versions",
+      );
+    });
+
+    it("toggle button has aria-label 'Expand song versions' when collapsed", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Expand song versions",
+      );
+    });
+  });
+
   describe("Original bubble cache indicator", () => {
     it("adds version-cached class to Original bubble when original audio is cached", async () => {
       const audioCache = await import("../../audio/audioCache");
