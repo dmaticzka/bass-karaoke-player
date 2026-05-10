@@ -533,7 +533,9 @@ def _song_router() -> APIRouter:
                 status_code=404, detail="Original audio file not found on disk."
             )
         suffix = path.suffix.lower()
-        media_type = ORIGINAL_AUDIO_CONTENT_TYPES.get(suffix, "application/octet-stream")
+        media_type = ORIGINAL_AUDIO_CONTENT_TYPES.get(
+            suffix, "application/octet-stream"
+        )
         return FileResponse(
             path,
             media_type=media_type,
