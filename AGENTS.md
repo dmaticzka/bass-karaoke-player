@@ -45,6 +45,12 @@ npm run build
 
 `npm run build` runs `tsc -b && vite build` — the TypeScript compiler (`tsc`) will catch type errors that would otherwise only surface inside the Docker build.
 
+Then run the end-to-end tests (run from repository root):
+
+```
+uv run pytest e2e/
+```
+
 ### 2. Backend (run from repository root)
 
 ```
