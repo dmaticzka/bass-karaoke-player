@@ -37,6 +37,11 @@ const defaultProps = {
   onLoopAdjustA: vi.fn(),
   onLoopAdjustB: vi.fn(),
   onLoopShift: vi.fn(),
+  onAddCurrentToHistory: vi.fn(),
+  onRemoveCurrentInterval: vi.fn(),
+  onRestoreHistoryItem: vi.fn(),
+  onRemoveHistoryItem: vi.fn(),
+  onClearLoopHistory: vi.fn(),
 };
 
 describe("PlaybackBar", () => {
@@ -220,5 +225,49 @@ describe("PlaybackBar", () => {
     render(<PlaybackBar {...defaultProps} onLoopShift={onLoopShift} />);
     fireEvent.click(document.querySelector("#loop-shift-btn")!);
     expect(onLoopShift).toHaveBeenCalledTimes(1);
+  });
+
+  describe("AB Loop collapsible header", () => {
+    it("renders a collapsible-header wrapping the AB Loop title", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      expect(document.querySelector(".collapsible-header")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "AB Loop" })).toBeInTheDocument();
+    });
+
+    it("AB loop body is expanded by default", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("clicking the AB Loop collapsible header collapses the loop body", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-body.collapsed")).toBeInTheDocument();
+    });
+
+    it("clicking the AB Loop collapsible header again expands the loop body", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      const header = document.querySelector(".collapsible-header")!;
+      fireEvent.click(header);
+      fireEvent.click(header);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("toggle button has aria-label 'Collapse AB loop' when expanded", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Collapse AB loop",
+      );
+    });
+
+    it("toggle button has aria-label 'Expand AB loop' when collapsed", () => {
+      render(<PlaybackBar {...defaultProps} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Expand AB loop",
+      );
+    });
   });
 });

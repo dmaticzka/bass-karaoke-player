@@ -117,6 +117,9 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 # Install dev dependencies
 uv sync --group dev
 
+# Activate the pre-commit hook (runs frontend tests, build, ruff, mypy, pytest on every commit)
+git config core.hooksPath .githooks
+
 # Run tests
 uv run pytest backend/tests/ -v
 

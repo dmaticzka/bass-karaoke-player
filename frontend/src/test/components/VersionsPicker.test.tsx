@@ -57,9 +57,9 @@ beforeEach(() => {
 });
 
 describe("VersionsPicker", () => {
-  it("renders nothing when versions list is empty", () => {
+  it("renders the versions section even when versions list is empty", () => {
     render(<VersionsPicker onSelectVersion={vi.fn()} />);
-    expect(document.querySelector("#versions-section")).not.toBeInTheDocument();
+    expect(document.querySelector("#versions-section")).toBeInTheDocument();
   });
 
   it("renders an Original bubble even when versions list is empty", () => {
@@ -281,6 +281,49 @@ describe("VersionsPicker", () => {
         await Promise.resolve();
       });
       expect(document.querySelector(".version-item.version-cached")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("collapsible header", () => {
+    it("renders a collapsible-header wrapping the Song Versions title", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-header")).toBeInTheDocument();
+    });
+
+    it("versions body is expanded by default", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("clicking the collapsible header collapses the versions body", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-body.collapsed")).toBeInTheDocument();
+    });
+
+    it("clicking the collapsible header again expands the versions body", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      const header = document.querySelector(".collapsible-header")!;
+      fireEvent.click(header);
+      fireEvent.click(header);
+      expect(document.querySelector(".collapsible-body.expanded")).toBeInTheDocument();
+    });
+
+    it("toggle button has aria-label 'Collapse song versions' when expanded", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Collapse song versions",
+      );
+    });
+
+    it("toggle button has aria-label 'Expand song versions' when collapsed", () => {
+      render(<VersionsPicker onSelectVersion={vi.fn()} />);
+      fireEvent.click(document.querySelector(".collapsible-header")!);
+      expect(document.querySelector(".collapsible-toggle")).toHaveAttribute(
+        "aria-label",
+        "Expand song versions",
+      );
     });
   });
 
