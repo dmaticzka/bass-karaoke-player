@@ -96,23 +96,18 @@ export function SongList({ onLoadSong }: Props) {
               </span>
 
               <div className="song-actions">
-                {(song.status === "ready" || song.status === "splitting") && (
+                {(song.status === "ready" || song.status === "splitting" || song.status === "queued") && (
                   <button
                     className={[
                       "btn btn-sm btn-primary song-load-btn",
-                      song.status === "splitting" ? "status-splitting" : "",
+                      song.status === "splitting" || song.status === "queued" ? "status-splitting" : "",
                       cachedSongIds.has(song.id) ? "song-cached" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={song.status === "ready" ? () => onLoadSong(song) : undefined}
-                    disabled={song.status === "splitting"}
+                    onClick={() => onLoadSong(song)}
                   >
-                    {song.status === "splitting"
-                      ? "Splitting…"
-                      : activeSong?.id === song.id
-                        ? "Active"
-                        : "Load"}
+                    {activeSong?.id === song.id ? "Active" : "Load"}
                   </button>
                 )}
                 <button

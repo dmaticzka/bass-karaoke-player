@@ -113,6 +113,11 @@ class TestPlayerSection:
         load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
+        # The player defaults to "Original" mode; switch to Stems so that
+        # stem cards are rendered for tests that rely on them.
+        stems_btn = page.locator(".version-item", has_text="Stems")
+        expect(stems_btn).to_be_visible()
+        stems_btn.click()
         return page
 
     @pytest.fixture()
@@ -139,6 +144,12 @@ class TestPlayerSection:
         load_btn = song_item.locator(".song-load-btn")
         expect(load_btn).to_be_visible()
         load_btn.click()
+        # The player defaults to "Original" mode (original audio URL is not
+        # delayed); switch to Stems so the delayed stem fetches begin and the
+        # UI stays in the loading state for the assertions below.
+        stems_btn = page.locator(".version-item", has_text="Stems")
+        expect(stems_btn).to_be_visible()
+        stems_btn.click()
         return page
 
     def test_player_becomes_visible(self, loaded_player: Page) -> None:

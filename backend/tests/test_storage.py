@@ -166,6 +166,38 @@ class TestSongStorage:
         assert reloaded is not None
         assert reloaded.error_message == "processing failed"
 
+    def test_original_file_path_returns_none_when_no_file(
+        self, storage: SongStorage
+    ) -> None:
+        """original_file_path returns None when the original/ dir doesn't exist."""
+        song = storage.create_song("song.mp3")
+        assert storage.original_file_path(song.id) is None
+
+    def test_original_file_path_returns_none_when_dir_empty(
+        self, storage: SongStorage
+    ) -> None:
+        """original_file_path returns None when the original/ dir is empty."""
+        song = storage.create_song("song.mp3")
+        storage.original_dir(song.id).mkdir(parents=True, exist_ok=True)
+        assert storage.original_file_path(song.id) is None
+
+    def test_original_file_path_returns_the_uploaded_file(
+        self, storage: SongStorage
+    ) -> None:
+        """original_file_path returns the path of the uploaded file."""
+        song = storage.create_song("track.mp3")
+        path = storage.upload_path(song.id, "track.mp3")
+        path.write_bytes(b"\x00" * 16)
+        result = storage.original_file_path(song.id)
+        assert result is not None
+        assert result == path
+
+    def test_original_file_path_ignores_non_existent_song(
+        self, storage: SongStorage
+    ) -> None:
+        """original_file_path returns None for a song id that has no directory."""
+        assert storage.original_file_path("nonexistent-id") is None
+
 
 class TestVersionStorage:
     def test_list_versions_empty_no_dir(self, storage: SongStorage) -> None:

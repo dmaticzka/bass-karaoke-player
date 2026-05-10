@@ -13,15 +13,23 @@ export interface StemNode {
   eqBypassed: boolean;
 }
 
+interface OriginalNode {
+  buffer: AudioBuffer;
+  gainNode: GainNode;
+  source: AudioBufferSourceNode | null;
+}
+
 interface Engine {
   ctx: AudioContext | null;
   stemNodes: Partial<Record<StemName, StemNode>>;
+  originalNode: OriginalNode | null;
   seekTimerId: number | null;
 }
 
 const engine: Engine = {
   ctx: null,
   stemNodes: {},
+  originalNode: null,
   seekTimerId: null,
 };
 
@@ -44,10 +52,23 @@ export function clearStemNodes(): void {
 export function _resetForTesting(): void {
   engine.ctx = null;
   engine.stemNodes = {};
+  engine.originalNode = null;
   if (engine.seekTimerId !== null) {
     clearInterval(engine.seekTimerId);
     engine.seekTimerId = null;
   }
+}
+
+export function wireOriginalNode(buffer: AudioBuffer): void {
+  const ctx = getOrCreateCtx();
+  const gainNode = ctx.createGain();
+  gainNode.gain.value = 1.0;
+  gainNode.connect(ctx.destination);
+  engine.originalNode = { buffer, gainNode, source: null };
+}
+
+export function clearOriginalNode(): void {
+  engine.originalNode = null;
 }
 
 function buildEqChain(ctx: AudioContext, bands: EqBand[]): BiquadFilterNode[] {
@@ -157,6 +178,23 @@ export function playAll(
     }
     node.source = source;
   }
+
+  if (engine.originalNode) {
+    const orig = engine.originalNode;
+    const source = ctx.createBufferSource();
+    source.buffer = orig.buffer;
+    source.connect(orig.gainNode);
+    if (loopEnabled && loopStart !== null && loopEnd !== null) {
+      source.loop = true;
+      source.loopStart = loopStart;
+      source.loopEnd = loopEnd;
+      const startFrom = Math.max(loopStart, Math.min(offset, loopEnd));
+      source.start(0, startFrom);
+    } else {
+      source.start(0, offset);
+    }
+    orig.source = source;
+  }
 }
 
 export function stopSources(): void {
@@ -168,6 +206,15 @@ export function stopSources(): void {
       // already stopped
     }
     node.source = null;
+  }
+
+  if (engine.originalNode) {
+    try {
+      engine.originalNode.source?.stop();
+    } catch {
+      // already stopped
+    }
+    engine.originalNode.source = null;
   }
 }
 
@@ -196,5 +243,7 @@ export function getDuration(): number {
   const durations = Object.values(engine.stemNodes)
     .filter(Boolean)
     .map((n) => n!.buffer.duration);
-  return durations.length > 0 ? Math.max(...durations) : 0;
+  if (durations.length > 0) return Math.max(...durations);
+  if (engine.originalNode) return engine.originalNode.buffer.duration;
+  return 0;
 }

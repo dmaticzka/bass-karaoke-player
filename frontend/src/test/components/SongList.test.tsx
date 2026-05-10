@@ -14,6 +14,7 @@ vi.mock("../../api/client", () => ({
     deleteSong: vi.fn().mockResolvedValue(undefined),
     getSongs: vi.fn().mockResolvedValue({ songs: [] }),
     stemUrl: vi.fn().mockImplementation((id: string, stem: string) => `/api/songs/${id}/stems/${stem}`),
+    originalAudioUrl: vi.fn().mockImplementation((id: string) => `/api/songs/${id}/original-audio`),
   },
 }));
 
@@ -32,6 +33,15 @@ const splittingSong: Song = {
   artist: "Artist",
   title: "Title",
   status: "splitting",
+  stems: [],
+};
+
+const queuedSong: Song = {
+  id: "s4",
+  filename: "queued.mp3",
+  artist: "Queued Artist",
+  title: "Queued Title",
+  status: "queued",
   stems: [],
 };
 
@@ -72,12 +82,12 @@ describe("SongList", () => {
     expect(document.querySelector(".song-status-badge")).not.toBeInTheDocument();
   });
 
-  it("shows disabled 'Splitting…' button for splitting song", () => {
+  it("shows enabled 'Load' button for splitting song", () => {
     resetStore([splittingSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    const btn = screen.getByText("Splitting…");
+    const btn = screen.getByText("Load");
     expect(btn).toBeInTheDocument();
-    expect(btn).toBeDisabled();
+    expect(btn).not.toBeDisabled();
   });
 
   it("splitting button has status-splitting class (pulsates)", () => {
@@ -92,18 +102,26 @@ describe("SongList", () => {
     expect(document.querySelector(".song-load-btn")).not.toBeInTheDocument();
   });
 
-  it("shows Load button only for ready songs", () => {
+  it("shows Load button for both ready and splitting songs", () => {
     resetStore([readySong, splittingSong]);
     render(<SongList onLoadSong={vi.fn()} />);
-    expect(screen.getAllByText("Load")).toHaveLength(1);
+    expect(screen.getAllByText("Load")).toHaveLength(2);
   });
 
-  it("calls onLoadSong with the song when Load is clicked", () => {
+  it("calls onLoadSong with the song when Load is clicked for a ready song", () => {
     const onLoadSong = vi.fn();
     resetStore([readySong]);
     render(<SongList onLoadSong={onLoadSong} />);
     fireEvent.click(screen.getByText("Load"));
     expect(onLoadSong).toHaveBeenCalledWith(readySong);
+  });
+
+  it("calls onLoadSong with the song when Load is clicked for a splitting song", () => {
+    const onLoadSong = vi.fn();
+    resetStore([splittingSong]);
+    render(<SongList onLoadSong={onLoadSong} />);
+    fireEvent.click(screen.getByText("Load"));
+    expect(onLoadSong).toHaveBeenCalledWith(splittingSong);
   });
 
   it("marks active song row with 'active' class", () => {
@@ -182,5 +200,33 @@ describe("SongList", () => {
     });
     expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "vocals");
     expect(vi.mocked(api.stemUrl)).toHaveBeenCalledWith("s1", "bass");
+  });
+
+  it("shows enabled 'Load' button for queued song", () => {
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    const btn = screen.getByText("Load");
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("queued button has status-splitting class (pulsates)", () => {
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    expect(document.querySelector(".song-load-btn.status-splitting")).toBeInTheDocument();
+  });
+
+  it("calls onLoadSong with the song when Load is clicked for a queued song", () => {
+    const onLoadSong = vi.fn();
+    resetStore([queuedSong]);
+    render(<SongList onLoadSong={onLoadSong} />);
+    fireEvent.click(screen.getByText("Load"));
+    expect(onLoadSong).toHaveBeenCalledWith(queuedSong);
+  });
+
+  it("shows Load button for ready, splitting, and queued songs", () => {
+    resetStore([readySong, splittingSong, queuedSong]);
+    render(<SongList onLoadSong={vi.fn()} />);
+    expect(screen.getAllByText("Load")).toHaveLength(3);
   });
 });

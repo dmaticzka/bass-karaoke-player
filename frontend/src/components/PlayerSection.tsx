@@ -15,7 +15,7 @@ const POLL_MS = 2000;
 const LAST_SELECTED_VERSIONS_KEY = "bass-karaoke-player:last-selected-versions";
 const LOOP_HISTORY_KEY_PREFIX = "bass-karaoke-player:loop-history";
 
-type LastSelectedVersion = { pitch: number; tempo: number };
+type LastSelectedVersion = { pitch: number; tempo: number; isOriginal?: boolean };
 type LastSelectedVersionsBySong = Record<string, LastSelectedVersion>;
 type LoopHistoryItem = { a: number | null; b: number | null };
 
@@ -29,10 +29,15 @@ const readLastSelectedVersions = (): LastSelectedVersionsBySong => {
     const result: LastSelectedVersionsBySong = {};
     for (const [songId, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (!value || typeof value !== "object") continue;
-      const pitch = (value as { pitch?: unknown }).pitch;
-      const tempo = (value as { tempo?: unknown }).tempo;
-      if (typeof pitch === "number" && typeof tempo === "number") {
-        result[songId] = { pitch, tempo };
+      const v = value as Record<string, unknown>;
+      if (v.isOriginal === true) {
+        result[songId] = { pitch: 0, tempo: 1.0, isOriginal: true };
+      } else {
+        const pitch = v.pitch;
+        const tempo = v.tempo;
+        if (typeof pitch === "number" && typeof tempo === "number") {
+          result[songId] = { pitch, tempo };
+        }
       }
     }
     return result;
@@ -101,6 +106,8 @@ export function PlayerSection() {
   const clearLoopHistory = usePlayerStore((s) => s.clearLoopHistory);
   const setLoopHistory = usePlayerStore((s) => s.setLoopHistory);
   const activeVersion = usePlayerStore((s) => s.activeVersion);
+  const isOriginalActive = usePlayerStore((s) => s.isOriginalActive);
+  const setIsOriginalActive = usePlayerStore((s) => s.setIsOriginalActive);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
   const [isPrecalculating, setIsPrecalculating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,10 +126,14 @@ export function PlayerSection() {
     songId: string,
     pitchSemitones: number,
     tempoRatio: number,
+    isOriginal?: boolean,
   ) => {
+    const entry: LastSelectedVersion = isOriginal
+      ? { pitch: 0, tempo: 1.0, isOriginal: true }
+      : { pitch: pitchSemitones, tempo: tempoRatio };
     lastSelectedVersionsRef.current = {
       ...lastSelectedVersionsRef.current,
-      [songId]: { pitch: pitchSemitones, tempo: tempoRatio },
+      [songId]: entry,
     };
     try {
       window.localStorage.setItem(
@@ -164,7 +175,8 @@ export function PlayerSection() {
     versions: Version[],
   ): LastSelectedVersion => {
     const saved = lastSelectedVersionsRef.current[songId];
-    if (!saved) return { pitch: 0, tempo: 1.0 };
+    if (!saved) return { pitch: 0, tempo: 1.0, isOriginal: true };
+    if (saved.isOriginal) return { pitch: 0, tempo: 1.0, isOriginal: true };
 
     const matched = versions.find(
       (v) =>
@@ -192,6 +204,8 @@ export function PlayerSection() {
     const requestId = loadRequestRef.current;
     const ctx = eng.getOrCreateCtx();
     eng.clearStemNodes();
+    eng.clearOriginalNode();
+    setIsOriginalActive(false);
 
     const useProcessed = pitchSemitones !== 0 || tempoRatio !== 1;
 
@@ -265,8 +279,48 @@ export function PlayerSection() {
   };
 
   // -----------------------------------------------------------------------
-  // Versions
+  // Original audio loading
   // -----------------------------------------------------------------------
+  const fetchAndDecodeOriginal = async () => {
+    if (!activeSong) return;
+    const requestId = loadRequestRef.current;
+    const ctx = eng.getOrCreateCtx();
+    const url = api.originalAudioUrl(activeSong.id);
+    const encoded = await audioCache.fetchWithCache(url);
+    if (requestId !== loadRequestRef.current) return;
+    const audioBuffer = await ctx.decodeAudioData(encoded);
+    if (requestId !== loadRequestRef.current) return;
+    eng.clearOriginalNode();
+    eng.wireOriginalNode(audioBuffer);
+    const dur = eng.getDuration();
+    setDuration(dur);
+  };
+
+  const handleSelectOriginal = async () => {
+    if (!activeSong) return;
+    const wasPlaying = isPlayingRef.current;
+    const savedOffset = getCurrentPos();
+    const requestId = beginLoadRequest();
+    stopAll();
+    eng.clearStemNodes();
+    setIsOriginalActive(true);
+    persistLastSelectedVersion(activeSong.id, 0, 1.0, true);
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      await fetchAndDecodeOriginal();
+      if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
+    } catch (e) {
+      console.error("Load original failed:", e);
+      if (requestId === loadRequestRef.current) {
+        setLoadError((e as Error).message ?? "Failed to load original audio.");
+      }
+    } finally {
+      if (requestId === loadRequestRef.current) setIsLoading(false);
+    }
+  };
+
+
   const fetchVersions = async () => {
     if (!activeSong) return;
     try {
@@ -653,7 +707,9 @@ export function PlayerSection() {
   };
 
   const handleSelectVersion = async (vPitch: number, vTempo: number) => {
+    const s = usePlayerStore.getState();
     if (
+      !s.isOriginalActive &&
       activeVersion.pitch === vPitch &&
       activeVersion.tempo === vTempo
     )
@@ -706,35 +762,49 @@ export function PlayerSection() {
     const requestId = beginLoadRequest();
     setIsLoading(true);
     void (async () => {
-      let targetPitch = 0;
-      let targetTempo = 1.0;
+      let preferred: LastSelectedVersion = { pitch: 0, tempo: 1.0, isOriginal: true };
       try {
         const versionsData = await api.getVersions(activeSong.id);
         if (requestId !== loadRequestRef.current) return;
         applyVersions(versionsData.versions);
-        const preferred = resolvePreferredVersion(activeSong.id, versionsData.versions);
-        targetPitch = preferred.pitch;
-        targetTempo = preferred.tempo;
+        preferred = resolvePreferredVersion(activeSong.id, versionsData.versions);
       } catch {
         if (requestId !== loadRequestRef.current) return;
         stopVersionPolling();
       }
 
       if (requestId !== loadRequestRef.current) return;
-      setPitch(targetPitch);
-      setTempo(Math.round(targetTempo * 100));
-      setActiveVersion(targetPitch, targetTempo);
-      persistLastSelectedVersion(activeSong.id, targetPitch, targetTempo);
 
-      try {
-        await fetchAndDecodeStems(targetPitch, targetTempo);
-      } catch (e) {
-        console.error("Initial stem load failed:", e);
-        if (requestId === loadRequestRef.current) {
-          setLoadError((e as Error).message ?? "Failed to load stems.");
+      if (preferred.isOriginal) {
+        setIsOriginalActive(true);
+        persistLastSelectedVersion(activeSong.id, 0, 1.0, true);
+        try {
+          await fetchAndDecodeOriginal();
+        } catch (e) {
+          console.error("Initial original load failed:", e);
+          if (requestId === loadRequestRef.current) {
+            setLoadError((e as Error).message ?? "Failed to load original audio.");
+          }
+        } finally {
+          if (requestId === loadRequestRef.current) setIsLoading(false);
         }
-      } finally {
-        if (requestId === loadRequestRef.current) setIsLoading(false);
+      } else {
+        const targetPitch = preferred.pitch;
+        const targetTempo = preferred.tempo;
+        setPitch(targetPitch);
+        setTempo(Math.round(targetTempo * 100));
+        setActiveVersion(targetPitch, targetTempo);
+        persistLastSelectedVersion(activeSong.id, targetPitch, targetTempo);
+        try {
+          await fetchAndDecodeStems(targetPitch, targetTempo);
+        } catch (e) {
+          console.error("Initial stem load failed:", e);
+          if (requestId === loadRequestRef.current) {
+            setLoadError((e as Error).message ?? "Failed to load stems.");
+          }
+        } finally {
+          if (requestId === loadRequestRef.current) setIsLoading(false);
+        }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -779,8 +849,9 @@ export function PlayerSection() {
         </p>
       )}
 
-      <VersionsPicker onSelectVersion={handleSelectVersion} />
+      <VersionsPicker onSelectVersion={handleSelectVersion} onSelectOriginal={handleSelectOriginal} />
 
+      {!isOriginalActive && (
       <div className="stems-section">
         <div
           className="collapsible-header"
@@ -801,6 +872,7 @@ export function PlayerSection() {
           />
         </div>
       </div>
+      )}
 
       <PlaybackBar
         onPlayPause={handlePlayPause}

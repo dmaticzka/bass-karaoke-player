@@ -21,6 +21,7 @@ vi.mock("../../api/client", () => ({
       (id: string, stem: string, p: number, t: number) =>
         `/api/songs/${id}/stems/${stem}/processed?pitch=${p}&tempo=${t}`,
     ),
+    originalAudioUrl: vi.fn((id: string) => `/api/songs/${id}/original-audio`),
   },
 }));
 
@@ -55,6 +56,8 @@ vi.mock("../../audio/engine", () => ({
   })),
   clearStemNodes: vi.fn(),
   wireStemNode: vi.fn(),
+  wireOriginalNode: vi.fn(),
+  clearOriginalNode: vi.fn(),
   getDuration: vi.fn(() => 100),
   playAll: vi.fn(),
   stopSources: vi.fn(),
@@ -109,6 +112,7 @@ function resetStore() {
     loopHistory: [],
     stemVolumes: {},
     stemMuted: {},
+    isOriginalActive: false,
   });
 }
 
@@ -119,8 +123,14 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
   }));
+  // Default: song "s1" has a saved stems preference so existing tests start in
+  // stems mode. Tests that need Original mode or a clean slate set their own mock.
   vi.stubGlobal("localStorage", {
-    getItem: vi.fn(() => null),
+    getItem: vi.fn((key: string) => {
+      if (key === "bass-karaoke-player:last-selected-versions")
+        return JSON.stringify({ s1: { pitch: 0, tempo: 1.0 } });
+      return null;
+    }),
     setItem: vi.fn(),
     removeItem: vi.fn(),
   });
@@ -1123,4 +1133,100 @@ describe("PlayerSection", () => {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Original audio mode
+  // ---------------------------------------------------------------------------
+
+  describe("Original audio mode", () => {
+    it("GlobalControls is rendered even when isOriginalActive is true", async () => {
+      // Original preference loaded — GlobalControls should still be present.
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === "bass-karaoke-player:last-selected-versions")
+          return JSON.stringify({ s1: { isOriginal: true } });
+        return null;
+      });
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      expect(screen.queryByRole("slider", { name: "Pitch in semitones" })).toBeInTheDocument();
+    });
+
+    it("StemsStack is not rendered when isOriginalActive is true", async () => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === "bass-karaoke-player:last-selected-versions")
+          return JSON.stringify({ s1: { isOriginal: true } });
+        return null;
+      });
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      expect(document.querySelectorAll(".stem-card")).toHaveLength(0);
+    });
+
+    it("clicking the Original bubble sets isOriginalActive to true", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        fireEvent.click(document.querySelector(".original-item")!);
+      });
+      expect(usePlayerStore.getState().isOriginalActive).toBe(true);
+    });
+
+    it("clicking the Original bubble fetches the original audio URL", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      vi.mocked(audioCache.fetchWithCache).mockClear();
+      await act(async () => {
+        fireEvent.click(document.querySelector(".original-item")!);
+      });
+      expect(vi.mocked(audioCache.fetchWithCache)).toHaveBeenCalledWith(
+        expect.stringContaining("/original-audio"),
+      );
+    });
+
+    it("song load with no saved preference defaults to Original mode", async () => {
+      const newSong = { ...readySong, id: "brand-new-song" };
+      // No entry for "brand-new-song" in localStorage.
+      vi.mocked(localStorage.getItem).mockReturnValue(
+        JSON.stringify({ s1: { pitch: 0, tempo: 1.0 } }),
+      );
+      vi.mocked(api.getVersions).mockResolvedValue({ versions: [] });
+      usePlayerStore.setState({ activeSong: newSong });
+      await act(async () => { render(<PlayerSection />); });
+      expect(usePlayerStore.getState().isOriginalActive).toBe(true);
+    });
+
+    it("Original selection is persisted to localStorage", async () => {
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      await act(async () => {
+        fireEvent.click(document.querySelector(".original-item")!);
+      });
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        "bass-karaoke-player:last-selected-versions",
+        expect.stringContaining('"isOriginal":true'),
+      );
+    });
+
+    it("selecting a stem version when in Original mode sets isOriginalActive to false", async () => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === "bass-karaoke-player:last-selected-versions")
+          return JSON.stringify({ s1: { isOriginal: true } });
+        return null;
+      });
+      usePlayerStore.setState({ activeSong: readySong });
+      await act(async () => { render(<PlayerSection />); });
+      // Add a version and click it to switch away from Original
+      await act(async () => {
+        usePlayerStore.setState({
+          versions: [{ pitch_semitones: 0, tempo_ratio: 1.0, is_default: true, status: "ready" }],
+        });
+      });
+      const versionItem = document.querySelector(".version-item");
+      if (versionItem) {
+        await act(async () => { fireEvent.click(versionItem); });
+        expect(usePlayerStore.getState().isOriginalActive).toBe(false);
+      }
+    });
+  });
 });
+

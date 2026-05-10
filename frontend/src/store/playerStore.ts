@@ -44,6 +44,8 @@ interface PlayerState {
   uploadStatus: string;
   // Song sort order
   songSortOrder: SongSortOrder;
+  // Original audio mode
+  isOriginalActive: boolean;
 }
 
 interface PlayerActions {
@@ -83,6 +85,7 @@ interface PlayerActions {
   setUploadProgress: (pct: number | null) => void;
   setUploadStatus: (msg: string) => void;
   setSongSortOrder: (order: SongSortOrder) => void;
+  setIsOriginalActive: (v: boolean) => void;
 }
 
 const defaultStemEqFor = (stems: string[]): Record<string, EqBand[]> => {
@@ -120,6 +123,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   uploadProgress: null,
   uploadStatus: "",
   songSortOrder: "last-used",
+  isOriginalActive: false,
 
   setSongs: (songs) => set({ songs }),
   updateSong: (song) =>
@@ -188,4 +192,5 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()((set) => ({
   setUploadProgress: (uploadProgress) => set({ uploadProgress }),
   setUploadStatus: (uploadStatus) => set({ uploadStatus }),
   setSongSortOrder: (songSortOrder) => set({ songSortOrder }),
+  setIsOriginalActive: (isOriginalActive) => set({ isOriginalActive }),
 }));

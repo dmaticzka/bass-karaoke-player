@@ -176,6 +176,12 @@ describe("api.processedStemUrl", () => {
   });
 });
 
+describe("api.originalAudioUrl", () => {
+  it("returns the correct URL for the original audio endpoint", () => {
+    expect(api.originalAudioUrl("s1")).toBe("/api/songs/s1/original-audio");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // uploadSong (XHR-based)
 // ---------------------------------------------------------------------------

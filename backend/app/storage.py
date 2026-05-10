@@ -93,6 +93,16 @@ class SongStorage:
         orig_dir.mkdir(parents=True, exist_ok=True)
         return orig_dir / filename
 
+    def original_file_path(self, song_id: str) -> Path | None:
+        """Return the path of the original uploaded audio file, or None if absent."""
+        orig_dir = self.original_dir(song_id)
+        if not orig_dir.exists():
+            return None
+        for f in orig_dir.iterdir():
+            if f.is_file():
+                return f
+        return None
+
     def stem_path(self, song_id: str, stem: StemName) -> Path:
         return self.stems_output_dir(song_id) / f"{stem.value}.mp3"
 

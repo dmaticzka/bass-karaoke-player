@@ -31,6 +31,7 @@ function resetStore() {
     uploadProgress: null,
     uploadStatus: "",
     songSortOrder: "last-used",
+    isOriginalActive: false,
   });
 }
 
@@ -252,6 +253,23 @@ describe("playerStore", () => {
     it("setServerConfig replaces config", () => {
       usePlayerStore.getState().setServerConfig({ max_versions_global: 10 });
       expect(usePlayerStore.getState().serverConfig.max_versions_global).toBe(10);
+    });
+  });
+
+  describe("isOriginalActive", () => {
+    it("defaults to false", () => {
+      expect(usePlayerStore.getState().isOriginalActive).toBe(false);
+    });
+
+    it("setIsOriginalActive sets to true", () => {
+      usePlayerStore.getState().setIsOriginalActive(true);
+      expect(usePlayerStore.getState().isOriginalActive).toBe(true);
+    });
+
+    it("setIsOriginalActive sets to false", () => {
+      usePlayerStore.setState({ isOriginalActive: true });
+      usePlayerStore.getState().setIsOriginalActive(false);
+      expect(usePlayerStore.getState().isOriginalActive).toBe(false);
     });
   });
 
