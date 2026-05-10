@@ -9,20 +9,6 @@
   "lockFileMaintenance": {
     "enabled": true,
   },
-  "customManagers": [
-    {
-      "description": "Track uv required-version in pyproject.toml as the same package pinned in the Dockerfile",
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^pyproject\\.toml$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=docker depName=(?<depName>[^\\n]+)\\nrequired-version = \"(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
-    }
-  ],
   "packageRules": [
     {
       "description": "Combine all GitHub Actions updates into a single PR",
@@ -35,7 +21,7 @@
       "groupName": "Python backend dependencies"
     },
     {
-      "description": "Group uv version updates in Dockerfile and pyproject.toml into a single PR",
+      "description": "Group uv version updates in Dockerfile into a single PR",
       "matchPackageNames": ["ghcr.io/astral-sh/uv"],
       "groupName": "uv"
     }
