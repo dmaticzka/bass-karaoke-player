@@ -454,11 +454,20 @@ a:hover { text-decoration: underline; }
 }
 .playback-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+  flex-wrap: nowrap;   /* always a single row */
+  gap: 0.3rem;
 }
-/* On small screens: 2 buttons per row (3 rows for 6 buttons) */
-.playback-buttons .btn { flex: 1 1 calc(50% - 0.325rem); }
+/* Mobile: equal-width, compact so all 7 fit on the narrowest screens */
+.playback-buttons .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.5rem 0.15rem;
+}
+/* btn-lg overrides base padding; pull it back to compact inside playback-buttons */
+.playback-buttons .btn-lg {
+  padding: 0.5rem 0.15rem;
+  font-size: 0.9rem;
+}
 .seek-row { display: flex; align-items: center; gap: 0.65rem; }
 .seek-slider-wrapper {
   position: relative;
@@ -566,8 +575,9 @@ a:hover { text-decoration: underline; }
 }
 
 @media (min-width: 600px) {
-  .playback-buttons { flex-wrap: nowrap; }
-  .playback-buttons .btn { flex: 0 0 auto; }
+  .playback-buttons { gap: 0.65rem; }
+  .playback-buttons .btn { flex: 0 0 auto; padding: 0.5rem 1rem; }
+  .playback-buttons .btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
 }
 
 /* ---------- Loop interval history ---------- */
