@@ -328,7 +328,7 @@ class TestGetOriginalAudio:
         data_dir: Path,
         filename: str = "track.mp3",
         status: SongStatus = SongStatus.READY,
-    ) -> "Song":
+    ) -> Song:
         from backend.app.models import Song
         from backend.app.storage import SongStorage
 
