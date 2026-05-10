@@ -109,6 +109,7 @@ export function PlayerSection() {
   const isOriginalActive = usePlayerStore((s) => s.isOriginalActive);
   const setIsOriginalActive = usePlayerStore((s) => s.setIsOriginalActive);
   const [stemsCollapsed, setStemsCollapsed] = useState(false);
+  const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [isPrecalculating, setIsPrecalculating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -836,12 +837,28 @@ export function PlayerSection() {
         <span className="song-title">{getSongTitle(activeSong)}</span>
       </h2>
 
-      <GlobalControls
-        onApply={handleApply}
-        onReset={handleReset}
-        onPrecalculate={handlePrecalculate}
-        isPrecalculating={isPrecalculating}
-      />
+      <div className="controls-section">
+        <div
+          className="collapsible-header"
+          onClick={() => setControlsCollapsed(!controlsCollapsed)}
+        >
+          <h3 className="sub-section-heading">Pitch &amp; Tempo</h3>
+          <button
+            className="collapsible-toggle"
+            aria-label={controlsCollapsed ? "Expand pitch and tempo" : "Collapse pitch and tempo"}
+          >
+            <span className={`chevron${controlsCollapsed ? " collapsed" : ""}`}>▼</span>
+          </button>
+        </div>
+        <div className={`collapsible-body ${controlsCollapsed ? "collapsed" : "expanded"}`}>
+          <GlobalControls
+            onApply={handleApply}
+            onReset={handleReset}
+            onPrecalculate={handlePrecalculate}
+            isPrecalculating={isPrecalculating}
+          />
+        </div>
+      </div>
 
       {loadError && (
         <p className="load-error" role="alert">
