@@ -239,6 +239,7 @@ export function PlaybackBar({
       </div>
       </div>
 
+      <h3 className="sub-section-heading">AB Loop</h3>
       <div className="loop-controls" id="loop-controls">
         <button
           id="loop-toggle-btn"
@@ -399,7 +400,7 @@ export function PlaybackBar({
       {/* Loop interval history */}
       <div className="loop-history" id="loop-history">
         <div className="loop-history-header">
-          <span className="loop-history-title">Intervals</span>
+          <span className="loop-history-title">Loop Intervals</span>
           <div className="loop-history-header-actions">
             <button
               className="btn btn-xs btn-secondary"

@@ -101,11 +101,17 @@ export function VersionsPicker({ onSelectVersion, onSelectOriginal }: Props) {
   );
 
   if (versions.length === 0) {
-    return <ul className="versions-list">{originalBubble}</ul>;
+    return (
+      <div className="versions-section" id="versions-section">
+        <h3 className="sub-section-heading">Song Versions</h3>
+        <ul className="versions-list">{originalBubble}</ul>
+      </div>
+    );
   }
 
   return (
     <div className="versions-section" id="versions-section">
+      <h3 className="sub-section-heading">Song Versions</h3>
       <ul className="versions-list" id="versions-list">
         {originalBubble}
         {versions.map((ver) => {

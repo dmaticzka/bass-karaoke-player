@@ -57,9 +57,9 @@ beforeEach(() => {
 });
 
 describe("VersionsPicker", () => {
-  it("renders nothing when versions list is empty", () => {
+  it("renders the versions section even when versions list is empty", () => {
     render(<VersionsPicker onSelectVersion={vi.fn()} />);
-    expect(document.querySelector("#versions-section")).not.toBeInTheDocument();
+    expect(document.querySelector("#versions-section")).toBeInTheDocument();
   });
 
   it("renders an Original bubble even when versions list is empty", () => {
