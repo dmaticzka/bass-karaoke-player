@@ -1,25 +1,37 @@
 # Agent Instructions
 
-## Development Workflow
+## Repository layout
 
-### Test-Driven Development
+```
+backend/app/      FastAPI app (main.py, audio_processor.py, models.py, storage.py)
+backend/tests/    pytest unit tests
+e2e/              Playwright E2E tests (NOT run by pre-commit)
+frontend/         React 19 + TypeScript + Vite SPA (separate npm package)
+frontend/dist/    build output; served by backend at /static/
+```
 
-Always follow TDD:
-1. Write failing tests that specify the desired behaviour
-2. Verify the tests fail before implementing
-3. Implement the feature until all tests pass
+No root `package.json`. All Node tooling is scoped to `frontend/`.  
+Backend requires `PYTHONPATH=.` for imports; managed with `uv` (Python ≥ 3.14).
 
-### Feature Branch
+## Development workflow
 
-Always work on a feature branch. Check the current branch with `git branch` before starting. If on `main` (or `master`), create and switch to a new branch:
+### Feature branches
+
+Always check `git branch` before starting. If on `main`, create a branch:
 
 ```
 git checkout -b feat/<short-description>
 ```
 
-### Commit Regularly
+### TDD
 
-Commit after each meaningful unit of work. Use the [Conventional Commits](https://www.conventionalcommits.org/) format:
+1. Write failing tests that specify the desired behaviour
+2. Verify the tests fail before implementing
+3. Implement until all tests pass
+
+### Commit regularly
+
+After each meaningful unit of work, using [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<optional scope>): <short description>
@@ -27,18 +39,64 @@ Commit after each meaningful unit of work. Use the [Conventional Commits](https:
 
 Common types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
 
-Examples:
-- `feat(player): add Original audio mode`
-- `fix(versions): correct cache indicator for original bubble`
-- `test(VersionsPicker): add failing tests for original cache indicator`
+## Commands
 
-## Completing Development Work
+### Frontend (run from `frontend/`)
 
-Frontend tests, frontend build (type-check), ruff, mypy, and pytest are enforced automatically by the pre-commit hook in `.githooks/pre-commit`. The hook is activated via `git config core.hooksPath .githooks` (already set in this repo).
+| Purpose | Command |
+|---|---|
+| Install deps | `npm ci` |
+| Run tests (once) | `npm test` |
+| Run tests (watch) | `npm run test:watch` |
+| Typecheck + bundle | `npm run build` |
 
-### Docker image (run from repository root)
+Run a single test file: `npm test -- src/test/components/Foo.test.tsx`
 
-Only after all checks pass:
+### Backend (run from repo root)
+
+| Purpose | Command |
+|---|---|
+| Install all deps | `uv sync --group dev` |
+| Run tests | `PYTHONPATH=. uv run pytest` |
+| Lint | `uv run ruff check backend/` |
+| Format check | `uv run ruff format --check backend/` |
+| Format fix | `uv run ruff format backend/` |
+| Type check | `uv run mypy backend/app/ --ignore-missing-imports` |
+
+Run a single test: `PYTHONPATH=. uv run pytest backend/tests/test_api.py::test_name -v`
+
+Backend test coverage threshold is **95%** — falling below fails the run.
+
+### E2E (not enforced by pre-commit)
+
+```
+PYTHONPATH=. FRONTEND_DIR=frontend/dist uv run pytest e2e/ -v --no-cov
+```
+
+Requires a built frontend (`npm run build` in `frontend/`) and `ffmpeg` installed.
+
+## Pre-commit hook
+
+`.githooks/pre-commit` is already active (`git config core.hooksPath .githooks`).  
+It runs on every commit in this order, aborting on first failure:
+
+1. Frontend Vitest tests
+2. Frontend TypeScript build
+3. `ruff check`
+4. `ruff format --check`
+5. `mypy`
+6. `pytest` (backend only, with coverage)
+
+No need to run checks manually before committing.
+
+## Quirks
+
+- **Frontend dev proxy**: `vite.config.ts` proxies `/api` and `/static` to `http://localhost:8000`. Start the backend before running `npm run dev`.
+- **Service worker**: hand-written at `frontend/src/sw.ts`; `vite-plugin-pwa` injects the precache manifest into it at build time. Do not edit the precache list manually.
+- **mypy is strict**: `strict = true` in `pyproject.toml`. All new backend code must be fully typed.
+- **Vitest setup file**: `frontend/src/test/setup.ts` — check it before adding new test globals.
+
+## Docker image (run from repo root, only after all checks pass)
 
 ```
 time docker build . --tag ghcr.io/dmaticzka/bass-karaoke-player:dev
