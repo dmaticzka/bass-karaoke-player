@@ -34,35 +34,11 @@ Examples:
 
 ## Completing Development Work
 
-Before building the Docker image, run all individual build and test steps first to catch errors quickly without a full Docker build cycle.
+Frontend tests, frontend build (type-check), ruff, mypy, and pytest are enforced automatically by the pre-commit hook in `.githooks/pre-commit`. The hook is activated via `git config core.hooksPath .githooks` (already set in this repo).
 
-### 1. Frontend (run from `frontend/`)
+### Docker image (run from repository root)
 
-```
-npm test
-npm run build
-```
-
-`npm run build` runs `tsc -b && vite build` — the TypeScript compiler (`tsc`) will catch type errors that would otherwise only surface inside the Docker build.
-
-Then run the end-to-end tests (run from repository root):
-
-```
-uv run pytest e2e/
-```
-
-### 2. Backend (run from repository root)
-
-```
-uv run ruff check backend/
-uv run ruff format --check backend/
-uv run mypy backend/app/ --ignore-missing-imports
-uv run pytest
-```
-
-### 3. Docker image (run from repository root)
-
-Only after all of the above pass:
+Only after all checks pass:
 
 ```
 time docker build . --tag ghcr.io/dmaticzka/bass-karaoke-player:dev

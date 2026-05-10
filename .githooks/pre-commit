@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs frontend and backend checks before every commit.
+# Install by running: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "--- pre-commit: frontend tests ---"
+(cd "$REPO_ROOT/frontend" && npm test -- --run)
+
+echo "--- pre-commit: frontend build (type-check) ---"
+(cd "$REPO_ROOT/frontend" && npm run build)
+
+echo "--- pre-commit: ruff check ---"
+uv run ruff check backend/
+
+echo "--- pre-commit: ruff format check ---"
+uv run ruff format --check backend/
+
+echo "--- pre-commit: mypy ---"
+uv run mypy backend/app/ --ignore-missing-imports
+
+echo "--- pre-commit: pytest ---"
+PYTHONPATH=. uv run pytest
+
+echo "--- pre-commit: all checks passed ---"
