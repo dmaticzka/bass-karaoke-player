@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "fastapi==0.136.1",
     "uvicorn[standard]==0.46.0",
-    "python-multipart==0.0.26",
+    "python-multipart==0.0.27",
     "aiofiles==25.1.0",
     "pydantic==2.13.3",
     "demucs==4.0.1",
@@ -40,7 +40,7 @@ dev = [
     "ruff==0.15.12",
     "mypy==1.20.2",
     "types-aiofiles==25.1.0.20260409",
-    "playwright==1.58.0",
+    "playwright==1.59.0",
     "pytest-playwright==0.7.2",
 ]
 
