@@ -22,7 +22,7 @@
   /* Nav heights */
   --header-height: 48px;
   --bottom-nav-height: 52px;
-  --mini-player-height: 48px;
+  --transport-bar-height: 96px;
 }
 
 /* ---------- Reset ---------- */
@@ -115,8 +115,8 @@ a:hover { text-decoration: underline; }
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  /* Space for bottom nav + mini player */
-  padding-bottom: calc(var(--bottom-nav-height) + var(--mini-player-height) + 0.75rem);
+  /* Space for bottom nav + transport bar */
+  padding-bottom: calc(var(--bottom-nav-height) + var(--transport-bar-height) + 0.75rem);
   overflow-y: auto;
 }
 
@@ -742,7 +742,8 @@ a:hover { text-decoration: underline; }
 .eq-freq-hz { font-size: 0.65rem; color: var(--color-muted); text-align: center; }
 
 /* ---------- Mini Player ---------- */
-.mini-player {
+/* ---------- Playback bar portal ---------- */
+#playback-bar-portal {
   position: fixed;
   bottom: var(--bottom-nav-height);
   left: 50%;
@@ -753,33 +754,19 @@ a:hover { text-decoration: underline; }
   border-top: 1px solid var(--color-border);
   box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
   z-index: 30;
+  padding: 0.65rem 1rem;
 }
-.mini-progress { height: 2px; background: var(--color-border); }
-.mini-progress-fill { height: 100%; background: var(--color-accent); transition: width 0.25s linear; }
-.mini-player-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  height: var(--mini-player-height);
+/* Suppress card-context top border/spacing — portal provides its own */
+#playback-bar-portal .playback-controls {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
 }
-.mini-song-name {
-  background: none;
-  border: none;
-  color: var(--color-text);
-  font-size: 0.87rem;
-  font-weight: 600;
-  cursor: pointer;
-  flex: 1;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 0.5rem 0 0;
-  min-height: var(--touch-target);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+/* No loop section below transport inside portal, so remove bottom separator */
+#playback-bar-portal .playback-transport {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 /* ---------- Bottom navigation ---------- */
