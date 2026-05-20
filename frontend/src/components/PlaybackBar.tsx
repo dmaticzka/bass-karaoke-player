@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { LoaderCircle, Pause, Play, SkipBack, Square } from "lucide-react";
 import { usePlayerStore } from "../store/playerStore";
 
@@ -8,22 +7,6 @@ interface Props {
   onSeek: (val: number) => void;
   onSeekRelative: (delta: number) => void;
   onBack: () => void;
-  onLoopToggle: () => void;
-  onLoopSetA: () => void;
-  onLoopSetB: () => void;
-  onLoopClear: () => void;
-  onLoopClearA: () => void;
-  onLoopClearB: () => void;
-  onLoopSetAValue: (val: number) => void;
-  onLoopSetBValue: (val: number) => void;
-  onLoopAdjustA: (delta: number) => void;
-  onLoopAdjustB: (delta: number) => void;
-  onLoopShift: () => void;
-  onAddCurrentToHistory: () => void;
-  onRemoveCurrentInterval: () => void;
-  onRestoreHistoryItem: (index: number) => void;
-  onRemoveHistoryItem: (index: number) => void;
-  onClearLoopHistory: () => void;
 }
 
 function SkipBackIcon({ seconds }: { seconds: number }) {
@@ -97,31 +80,7 @@ function fmtTime(secs: number): string {
   return `${m}:${s}`;
 }
 
-const AB_ADJUST_STEPS = [-10, -5, -1, 1, 5, 10] as const;
-
-export function PlaybackBar({
-  onPlayPause,
-  onStop,
-  onSeek,
-  onSeekRelative,
-  onBack,
-  onLoopToggle,
-  onLoopSetA,
-  onLoopSetB,
-  onLoopClear,
-  onLoopClearA,
-  onLoopClearB,
-  onLoopSetAValue,
-  onLoopSetBValue,
-  onLoopAdjustA,
-  onLoopAdjustB,
-  onLoopShift,
-  onAddCurrentToHistory,
-  onRemoveCurrentInterval,
-  onRestoreHistoryItem,
-  onRemoveHistoryItem,
-  onClearLoopHistory,
-}: Props) {
+export function PlaybackBar({ onPlayPause, onStop, onSeek, onSeekRelative, onBack }: Props) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
   const duration = usePlayerStore((s) => s.duration);
@@ -129,367 +88,110 @@ export function PlaybackBar({
   const loopEnabled = usePlayerStore((s) => s.loopEnabled);
   const loopStart = usePlayerStore((s) => s.loopStart);
   const loopEnd = usePlayerStore((s) => s.loopEnd);
-  const loopHistory = usePlayerStore((s) => s.loopHistory);
 
   const pos = Math.min(startOffset, duration || startOffset);
-
-  // Effective A/B values for display and slider positioning
-  const effectiveA = loopStart ?? 0;
-  const effectiveB = loopEnd ?? duration;
-
-  const [loopCollapsed, setLoopCollapsed] = useState(false);
-
 
   return (
     <div className="playback-controls">
       <div className="playback-transport">
-      <div className="playback-buttons">
-        <button
-          className="btn btn-secondary"
-          onClick={() => onSeekRelative(-30)}
-          aria-label="Skip back 30 seconds"
-          title="Skip back 30 s"
-        >
-          <SkipBackIcon seconds={30} />
-        </button>
-        <button
-          className="btn btn-secondary"
-          onClick={() => onSeekRelative(-15)}
-          aria-label="Skip back 15 seconds"
-          title="Skip back 15 s"
-        >
-          <SkipBackIcon seconds={15} />
-        </button>
-        <button
-          id="back-btn"
-          className="btn btn-secondary btn-lg"
-          onClick={onBack}
-          aria-label="Back to start / loop point A"
-          title="Back to start (or A when looping)"
-        >
-          <SkipBack size={22} />
-        </button>
-        <button
-          id="play-pause-btn"
-          className="btn btn-primary btn-lg"
-          disabled={isLoading}
-          onClick={onPlayPause}
-          aria-label={isPlaying ? "Pause" : "Play all stems"}
-        >
-          {isLoading ? (
-            <>
-              <LoaderCircle size={22} className="icon-spin" aria-hidden="true" />
-              <span className="sr-only">Loading…</span>
-            </>
-          ) : isPlaying ? (
-            <Pause size={22} />
-          ) : (
-            <Play size={22} />
-          )}
-        </button>
-        <button
-          id="stop-btn"
-          className="btn btn-secondary btn-lg"
-          onClick={onStop}
-          aria-label="Stop playback"
-        >
-          <Square size={22} />
-        </button>
-        <button
-          className="btn btn-secondary"
-          onClick={() => onSeekRelative(15)}
-          aria-label="Skip forward 15 seconds"
-          title="Skip forward 15 s"
-        >
-          <SkipForwardIcon seconds={15} />
-        </button>
-        <button
-          className="btn btn-secondary"
-          onClick={() => onSeekRelative(30)}
-          aria-label="Skip forward 30 seconds"
-          title="Skip forward 30 s"
-        >
-          <SkipForwardIcon seconds={30} />
-        </button>
-      </div>
-
-      <div className="seek-row">
-        <div className="seek-slider-wrapper">
-          <input
-            id="seek-slider"
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={pos}
-            onChange={(e) => onSeek(Number(e.target.value))}
-            aria-label="Seek"
-          />
-          {loopEnabled && loopStart !== null && loopEnd !== null && duration > 0 && (
-            <div
-              className="loop-range-indicator"
-              style={{
-                left: `${(loopStart / duration) * 100}%`,
-                width: `${((loopEnd - loopStart) / duration) * 100}%`,
-              }}
-              aria-hidden="true"
-            />
-          )}
-        </div>
-        <span id="time-display">
-          {fmtTime(pos)} / {fmtTime(duration)}
-        </span>
-      </div>
-      </div>
-
-      <div
-        className="collapsible-header"
-        onClick={() => setLoopCollapsed(!loopCollapsed)}
-      >
-        <h3 className="sub-section-heading">AB Loop</h3>
-        <button
-          className="collapsible-toggle"
-          aria-label={loopCollapsed ? "Expand AB loop" : "Collapse AB loop"}
-        >
-          <span className={`chevron${loopCollapsed ? " collapsed" : ""}`}>▼</span>
-        </button>
-      </div>
-      <div className={`collapsible-body ${loopCollapsed ? "collapsed" : "expanded"}`}>
-      <div className="loop-controls" id="loop-controls">
-        <button
-          id="loop-toggle-btn"
-          className={`btn btn-sm ${loopEnabled ? "btn-primary" : "btn-secondary"}`}
-          title="Toggle A-B loop"
-          onClick={onLoopToggle}
-        >
-          ⟳ A↔B
-        </button>
-        <button
-          id="loop-a-btn"
-          className="btn btn-sm btn-secondary"
-          title="Set loop start to current position"
-          disabled={!loopEnabled}
-          onClick={onLoopSetA}
-        >
-          Set A
-        </button>
-        <button
-          id="loop-clear-a-btn"
-          className="btn btn-sm btn-secondary"
-          title="Reset loop start to beginning"
-          disabled={!loopEnabled}
-          onClick={onLoopClearA}
-        >
-          Clear A
-        </button>
-        <button
-          id="loop-b-btn"
-          className="btn btn-sm btn-secondary"
-          title="Set loop end to current position"
-          disabled={!loopEnabled}
-          onClick={onLoopSetB}
-        >
-          Set B
-        </button>
-        <button
-          id="loop-clear-b-btn"
-          className="btn btn-sm btn-secondary"
-          title="Reset loop end to song end"
-          disabled={!loopEnabled}
-          onClick={onLoopClearB}
-        >
-          Clear B
-        </button>
-        <button
-          id="loop-clear-btn"
-          className="btn btn-sm btn-secondary"
-          title="Clear loop"
-          disabled={!loopEnabled}
-          onClick={onLoopClear}
-        >
-          Clear
-        </button>
-        <button
-          id="loop-shift-btn"
-          className="btn btn-sm btn-secondary"
-          title="Shift loop: A←B, B←song end"
-          aria-label="Shift loop: A to old B, B to song end"
-          disabled={!loopEnabled}
-          onClick={onLoopShift}
-        >
-          A&lt;B&lt;Ω
-        </button>
-
-      </div>
-
-      {/* A point slider row */}
-      <div className="ab-point-row" id="loop-a-row">
-        <span className="ab-point-label">A: {fmtTime(effectiveA)}</span>
-        <div className="ab-adjust-neg">
-          {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
-            <button
-              key={delta}
-              className="btn btn-xs btn-secondary ab-adjust-btn"
-              title={`Move A point ${delta}s`}
-              aria-label={`Move A point ${delta} seconds`}
-              disabled={!loopEnabled}
-              onClick={() => onLoopAdjustA(delta)}
-            >
-              {delta}s
-            </button>
-          ))}
-        </div>
-        <input
-          id="loop-a-slider"
-          type="range"
-          className="ab-point-slider"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={effectiveA}
-          disabled={!loopEnabled}
-          onChange={(e) => onLoopSetAValue(Number(e.target.value))}
-          aria-label="Loop start (A point)"
-        />
-        <div className="ab-adjust-pos">
-          {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
-            <button
-              key={delta}
-              className="btn btn-xs btn-secondary ab-adjust-btn"
-              title={`Move A point +${delta}s`}
-              aria-label={`Move A point +${delta} seconds`}
-              disabled={!loopEnabled}
-              onClick={() => onLoopAdjustA(delta)}
-            >
-              +{delta}s
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* B point slider row */}
-      <div className="ab-point-row" id="loop-b-row">
-        <span className="ab-point-label">B: {fmtTime(effectiveB)}</span>
-        <div className="ab-adjust-neg">
-          {AB_ADJUST_STEPS.filter((s) => s < 0).map((delta) => (
-            <button
-              key={delta}
-              className="btn btn-xs btn-secondary ab-adjust-btn"
-              title={`Move B point ${delta}s`}
-              aria-label={`Move B point ${delta} seconds`}
-              disabled={!loopEnabled}
-              onClick={() => onLoopAdjustB(delta)}
-            >
-              {delta}s
-            </button>
-          ))}
-        </div>
-        <input
-          id="loop-b-slider"
-          type="range"
-          className="ab-point-slider"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={effectiveB}
-          disabled={!loopEnabled}
-          onChange={(e) => onLoopSetBValue(Number(e.target.value))}
-          aria-label="Loop end (B point)"
-        />
-        <div className="ab-adjust-pos">
-          {AB_ADJUST_STEPS.filter((s) => s > 0).map((delta) => (
-            <button
-              key={delta}
-              className="btn btn-xs btn-secondary ab-adjust-btn"
-              title={`Move B point +${delta}s`}
-              aria-label={`Move B point +${delta} seconds`}
-              disabled={!loopEnabled}
-              onClick={() => onLoopAdjustB(delta)}
-            >
-              +{delta}s
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Loop interval history */}
-      <div className="loop-history" id="loop-history">
-        <div className="loop-history-header">
-          <span className="loop-history-title">Loop Intervals</span>
-          <div className="loop-history-header-actions">
-            <button
-              className="btn btn-xs btn-secondary"
-              id="loop-history-add-btn"
-              title="Add current interval to history"
-              onClick={onAddCurrentToHistory}
-            >
-              Add
-            </button>
-            <button
-              className="btn btn-xs btn-secondary"
-              id="loop-history-clear-btn"
-              title="Clear all saved intervals"
-              disabled={loopHistory.length === 0}
-              onClick={onClearLoopHistory}
-            >
-              Clear all
-            </button>
-          </div>
-        </div>
-
-        {/* Current interval */}
-        <div className="loop-history-item current" id="loop-history-current">
-          <span className="loop-history-label">Now</span>
-          <span className="loop-history-range">
-            {loopStart !== null ? fmtTime(loopStart) : "—"}
-            {" \u2013 "}
-            {loopEnd !== null ? fmtTime(loopEnd) : "—"}
-          </span>
+        <div className="playback-buttons">
           <button
-            className="loop-history-remove"
-            aria-label="Remove current interval"
-            title="Remove current interval"
-            onClick={onRemoveCurrentInterval}
+            className="btn btn-secondary"
+            onClick={() => onSeekRelative(-30)}
+            aria-label="Skip back 30 seconds"
+            title="Skip back 30 s"
           >
-            &times;
+            <SkipBackIcon seconds={30} />
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => onSeekRelative(-15)}
+            aria-label="Skip back 15 seconds"
+            title="Skip back 15 s"
+          >
+            <SkipBackIcon seconds={15} />
+          </button>
+          <button
+            id="back-btn"
+            className="btn btn-secondary btn-lg"
+            onClick={onBack}
+            aria-label="Back to start / loop point A"
+            title="Back to start (or A when looping)"
+          >
+            <SkipBack size={22} />
+          </button>
+          <button
+            id="play-pause-btn"
+            className="btn btn-primary btn-lg"
+            disabled={isLoading}
+            onClick={onPlayPause}
+            aria-label={isPlaying ? "Pause" : "Play all stems"}
+          >
+            {isLoading ? (
+              <>
+                <LoaderCircle size={22} className="icon-spin" aria-hidden="true" />
+                <span className="sr-only">Loading…</span>
+              </>
+            ) : isPlaying ? (
+              <Pause size={22} />
+            ) : (
+              <Play size={22} />
+            )}
+          </button>
+          <button
+            id="stop-btn"
+            className="btn btn-secondary btn-lg"
+            onClick={onStop}
+            aria-label="Stop playback"
+          >
+            <Square size={22} />
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => onSeekRelative(15)}
+            aria-label="Skip forward 15 seconds"
+            title="Skip forward 15 s"
+          >
+            <SkipForwardIcon seconds={15} />
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => onSeekRelative(30)}
+            aria-label="Skip forward 30 seconds"
+            title="Skip forward 30 s"
+          >
+            <SkipForwardIcon seconds={30} />
           </button>
         </div>
 
-        {/* Archived intervals */}
-        {loopHistory.map((item, i) => (
-          <div
-            key={i}
-            className="loop-history-item"
-            id={`loop-history-item-${i}`}
-            onClick={() => onRestoreHistoryItem(i)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onRestoreHistoryItem(i); }}
-            aria-label={`Restore interval ${i + 1}`}
-          >
-            <span className="loop-history-label">#{i + 1}</span>
-            <button
-              className="loop-history-restore"
-              aria-hidden="true"
-              tabIndex={-1}
-              onClick={(e) => { e.stopPropagation(); onRestoreHistoryItem(i); }}
-            >
-              {item.a !== null ? fmtTime(item.a) : "—"}
-              {" \u2013 "}
-              {item.b !== null ? fmtTime(item.b) : "—"}
-            </button>
-            <button
-              className="loop-history-remove"
-              aria-label={`Remove interval ${i + 1}`}
-              title={`Remove interval ${i + 1}`}
-              onClick={(e) => { e.stopPropagation(); onRemoveHistoryItem(i); }}
-            >
-              &times;
-            </button>
+        <div className="seek-row">
+          <div className="seek-slider-wrapper">
+            <input
+              id="seek-slider"
+              type="range"
+              min={0}
+              max={duration || 100}
+              step={0.1}
+              value={pos}
+              onChange={(e) => onSeek(Number(e.target.value))}
+              aria-label="Seek"
+            />
+            {loopEnabled && loopStart !== null && loopEnd !== null && duration > 0 && (
+              <div
+                className="loop-range-indicator"
+                style={{
+                  left: `${(loopStart / duration) * 100}%`,
+                  width: `${((loopEnd - loopStart) / duration) * 100}%`,
+                }}
+                aria-hidden="true"
+              />
+            )}
           </div>
-        ))}
+          <span id="time-display">
+            {fmtTime(pos)} / {fmtTime(duration)}
+          </span>
+        </div>
       </div>
-      </div>{/* collapsible-body */}
     </div>
   );
 }

@@ -220,27 +220,27 @@ describe("App", () => {
     expect(usePlayerStore.getState().activeTab).toBe("eq");
   });
 
-  it("mini-player is not shown when activeSong is null", async () => {
+  it("playback-bar-portal is not shown when activeSong is null", async () => {
     await act(async () => {
       render(<App />);
     });
-    expect(document.querySelector(".mini-player")).not.toBeInTheDocument();
+    expect(document.querySelector("#playback-bar-portal")).not.toBeInTheDocument();
   });
 
-  it("mini-player is shown when on library tab with an active song", async () => {
+  it("playback-bar-portal is shown on library tab with an active song", async () => {
     usePlayerStore.setState({ activeSong: readySong, activeTab: "library" });
     await act(async () => {
       render(<App />);
     });
-    expect(document.querySelector(".mini-player")).toBeInTheDocument();
+    expect(document.querySelector("#playback-bar-portal")).toBeInTheDocument();
   });
 
-  it("mini-player is not shown on player tab even with active song", async () => {
+  it("playback-bar-portal is shown on player tab with an active song", async () => {
     usePlayerStore.setState({ activeSong: readySong, activeTab: "player" });
     await act(async () => {
       render(<App />);
     });
-    expect(document.querySelector(".mini-player")).not.toBeInTheDocument();
+    expect(document.querySelector("#playback-bar-portal")).toBeInTheDocument();
   });
 
   it("shows song title in subtitle on non-library tabs", async () => {
@@ -269,30 +269,5 @@ describe("App", () => {
     ).resolves.not.toThrow();
   });
 
-  it("MiniPlayer navigate button switches to player tab", async () => {
-    vi.mocked(api.getSongs).mockResolvedValue({ songs: [readySong] });
-    usePlayerStore.setState({ activeSong: readySong, activeTab: "library" });
-    await act(async () => {
-      render(<App />);
-    });
-    // MiniPlayer should be visible — click the filename navigation button
-    const navBtn = screen.getByRole("button", { name: /test_song.mp3/ });
-    await act(async () => {
-      fireEvent.click(navBtn);
-    });
-    expect(usePlayerStore.getState().activeTab).toBe("player");
-  });
 
-  it("MiniPlayer play/pause button delegates click to #play-pause-btn", async () => {
-    usePlayerStore.setState({ activeSong: readySong, activeTab: "library" });
-    await act(async () => {
-      render(<App />);
-    });
-    const internalPlayBtn = document.querySelector("#play-pause-btn") as HTMLElement;
-    const clickSpy = vi.spyOn(internalPlayBtn, "click");
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Play" }));
-    });
-    expect(clickSpy).toHaveBeenCalled();
-  });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "../api/client";
 import * as eng from "../audio/engine";
@@ -7,6 +8,7 @@ import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { GlobalControls } from "./GlobalControls";
 import { StemsStack } from "./StemsStack";
 import { PlaybackBar } from "./PlaybackBar";
+import { LoopSection } from "./LoopSection";
 import { VersionsPicker } from "./VersionsPicker";
 import type { StemName, Version } from "../types";
 import { getSongArtist, getSongTitle } from "../utils/songDisplay";
@@ -891,12 +893,18 @@ export function PlayerSection() {
       </div>
       )}
 
-      <PlaybackBar
-        onPlayPause={handlePlayPause}
-        onStop={handleStop}
-        onSeek={handleSeek}
-        onSeekRelative={handleSeekRelative}
-        onBack={handleBack}
+      {createPortal(
+        <PlaybackBar
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          onSeek={handleSeek}
+          onSeekRelative={handleSeekRelative}
+          onBack={handleBack}
+        />,
+        document.getElementById("playback-bar-portal") ?? document.body,
+      )}
+
+      <LoopSection
         onLoopToggle={handleLoopToggle}
         onLoopSetA={handleLoopSetA}
         onLoopSetB={handleLoopSetB}

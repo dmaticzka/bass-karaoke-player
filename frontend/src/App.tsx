@@ -7,7 +7,6 @@ import { UploadSection } from "./components/UploadSection";
 import { SongList } from "./components/SongList";
 import { PlayerSection } from "./components/PlayerSection";
 import { Equalizer } from "./components/Equalizer";
-import { MiniPlayer } from "./components/MiniPlayer";
 import { BottomNav } from "./components/BottomNav";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import type { AppTab, Song } from "./types";
@@ -72,21 +71,6 @@ export default function App() {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleMiniPlayerNavigate = () => {
-    setActiveTab("player");
-    document.getElementById("player-section")?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Derived: show mini-player when on library or eq tab and a song is loaded
-  const showMiniPlayer = activeSong !== null && activeTab !== "player";
-
-  // Provide play/pause for mini-player — import engine directly to avoid circular
-  const handleMiniPlayPause = () => {
-    // Dispatch synthetic click on the real play-pause button
-    const btn = document.getElementById("play-pause-btn");
-    btn?.click();
-  };
-
   return (
     <div className="app-shell">
       {/* Sticky header */}
@@ -147,13 +131,8 @@ export default function App() {
         </div>
       </main>
 
-      {/* Mini player bar (above bottom nav, shown on non-player tabs) */}
-      {showMiniPlayer && (
-        <MiniPlayer
-          onPlayPause={handleMiniPlayPause}
-          onNavigatePlayer={handleMiniPlayerNavigate}
-        />
-      )}
+      {/* Playback bar portal target — PlaybackBar portals itself here when a song is loaded */}
+      {activeSong && <div id="playback-bar-portal" />}
 
       {/* Bottom navigation */}
       <BottomNav onTabChange={handleTabChange} />
