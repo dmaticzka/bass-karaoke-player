@@ -24,6 +24,12 @@
       "description": "Group uv version updates in Dockerfile into a single PR",
       "matchPackageNames": ["ghcr.io/astral-sh/uv"],
       "groupName": "uv"
+    },
+    {
+      "description": "Combine all frontend dependency updates into a single PR",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["frontend/package.json", "frontend/package-lock.json"],
+      "groupName": "Frontend dependencies"
     }
   ]
 }
