@@ -627,20 +627,52 @@ export function PlayerSection() {
   // -----------------------------------------------------------------------
   const handleApply = async () => {
     if (!activeSong) return;
+    const pitchSemitones = pitch;
+    const tempoRatio = tempo / 100;
     const wasPlaying = isPlaying;
     const savedOffset = getCurrentPos();
     const requestId = beginLoadRequest();
     stopAll();
     setIsLoading(true);
     setLoadError(null);
+
+    // Optimistically add a "processing" bubble so the version is visible in the
+    // UI immediately, matching the behaviour of the Precalculate button.
+    const currentVersions = usePlayerStore.getState().versions;
+    if (
+      !currentVersions.some(
+        (v) => v.pitch_semitones === pitchSemitones && v.tempo_ratio === tempoRatio,
+      )
+    ) {
+      setVersions([
+        ...currentVersions,
+        {
+          pitch_semitones: pitchSemitones,
+          tempo_ratio: tempoRatio,
+          is_default: false,
+          status: "processing",
+        },
+      ]);
+    }
+
+    // Register the version with the backend so it is tracked in _in_progress.
+    // This ensures list_versions returns a "processing" entry when the user
+    // navigates away and back — allowing polling to restart automatically.
+    // Non-fatal: a network failure here must not abort the audio load.
     try {
-      const pitchSemitones = pitch;
-      const tempoRatio = tempo / 100;
+      await api.createVersion(activeSong.id, {
+        pitch_semitones: pitchSemitones,
+        tempo_ratio: tempoRatio,
+      });
+    } catch {
+      // intentionally swallowed
+    }
+
+    try {
       await fetchAndDecodeStems(pitchSemitones, tempoRatio);
       if (requestId !== loadRequestRef.current) return;
       setActiveVersion(pitchSemitones, tempoRatio);
       persistLastSelectedVersion(activeSong.id, pitchSemitones, tempoRatio);
-      await fetchVersions();
       if (requestId === loadRequestRef.current && wasPlaying) playAll(savedOffset);
     } catch (e) {
       console.error("Apply failed:", e);
@@ -648,7 +680,10 @@ export function PlayerSection() {
         setLoadError((e as Error).message ?? "Failed to load stems.");
       }
     } finally {
-      if (requestId === loadRequestRef.current) setIsLoading(false);
+      if (requestId === loadRequestRef.current) {
+        await fetchVersions();
+        setIsLoading(false);
+      }
     }
   };
 
