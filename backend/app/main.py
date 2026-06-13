@@ -346,8 +346,12 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
     pool, which is bounded by MAX_PROCESS_WORKERS.  This limits the total number
     of concurrent rubberband invocations across all songs and acts as a queue
     when demand exceeds the pool capacity.
+
+    The caller is responsible for adding (song_id, pitch, tempo) to _in_progress
+    before scheduling this task.  This function only removes the entry in its
+    finally block so that list_versions always reflects the in-progress state
+    from the moment the task is scheduled, not from the moment the thread starts.
     """
-    _in_progress.add((song_id, pitch, tempo))
     try:
         song = storage.load_song(song_id)
         if song is None:
@@ -764,6 +768,11 @@ def _song_router() -> APIRouter:
                 tempo_ratio=params.tempo_ratio,
                 status="processing",
             )
+        # Add to _in_progress synchronously in the endpoint — before scheduling
+        # the background task — so that any getVersions call arriving after this
+        # response is sent will immediately see status="processing".  The task
+        # itself only owns the cleanup (discard in its finally block).
+        _in_progress.add((song_id, params.pitch_semitones, params.tempo_ratio))
         background_tasks.add_task(
             _process_version_task, song_id, params.pitch_semitones, params.tempo_ratio
         )

@@ -1599,6 +1599,29 @@ class TestCreateVersion:
         assert resp.json()["status"] == "processing"
         mock_task.assert_not_called()
 
+    def test_create_version_adds_to_in_progress_before_task_runs(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """create_version must add the (song_id, pitch, tempo) triple to
+        _in_progress synchronously in the endpoint — before the background task
+        thread even starts — so that list_versions immediately returns
+        status='processing' for any getVersions call that arrives after the
+        POST response is sent."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+
+        with patch("backend.app.main._process_version_task"):
+            resp = client.post(
+                "/api/songs/cv-song/versions",
+                json={"pitch_semitones": 2.0, "tempo_ratio": 1.2},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "processing"
+        assert ("cv-song", 2.0, 1.2) in main_module._in_progress
+
 
 # ---------------------------------------------------------------------------
 # Updated list_versions: status, stem_count, accessed_at
@@ -1807,11 +1830,9 @@ class TestProcessVersionTask:
         assert storage.version_status("pvt-song", 3.0, 0.8) == VersionStatus.READY
         assert main_module.processor.process.call_count == len(StemName)
 
-    def test_task_adds_and_removes_from_in_progress_on_success(
-        self, data_dir: Path
-    ) -> None:
-        """_process_version_task must register in _in_progress while running and
-        remove the entry once processing succeeds."""
+    def test_task_removes_from_in_progress_on_success(self, data_dir: Path) -> None:
+        """_process_version_task must remove the _in_progress entry added by
+        create_version once processing succeeds."""
         import backend.app.main as main_module
         from backend.app.main import _process_version_task
 
@@ -1819,6 +1840,8 @@ class TestProcessVersionTask:
         storage = SongStorage(data_dir)
         main_module.storage = storage
         main_module._in_progress.clear()
+        # Simulate the entry that create_version adds before scheduling the task.
+        main_module._in_progress.add(("pvt-song", 1.0, 1.2))
 
         def fake_process(input_path, output_path, pitch_semitones=0.0, tempo_ratio=1.0):
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1832,7 +1855,7 @@ class TestProcessVersionTask:
         assert ("pvt-song", 1.0, 1.2) not in main_module._in_progress
 
     def test_task_removes_from_in_progress_on_failure(self, data_dir: Path) -> None:
-        """_process_version_task must remove the entry from _in_progress even when
+        """_process_version_task must remove the _in_progress entry even when
         processing fails (AudioProcessorError), so the UI does not stall forever."""
         import backend.app.main as main_module
         from backend.app.main import _process_version_task
@@ -1840,6 +1863,8 @@ class TestProcessVersionTask:
         self._make_ready_song(data_dir)
         main_module.storage = SongStorage(data_dir)
         main_module._in_progress.clear()
+        # Simulate the entry that create_version adds before scheduling the task.
+        main_module._in_progress.add(("pvt-song", 2.0, 1.0))
         main_module.processor = MagicMock()
         main_module.processor.process.side_effect = AudioProcessorError("boom")
 
