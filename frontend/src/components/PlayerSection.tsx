@@ -149,11 +149,14 @@ export function PlayerSection() {
   };
 
   const applyVersions = (versions: Version[]) => {
-    // Preserve any optimistic "processing" entries that the server doesn't know
-    // about yet (no files on disk → not returned by list_versions).  Once the
-    // server finishes processing and polling returns the real entry, those
-    // entries will be present in `versions` and the optimistic placeholder is
-    // naturally replaced.
+    // The server now returns status "processing" for versions currently being
+    // processed (via _in_progress in main.py), so polling restarts naturally
+    // on song reload even after navigating away and back.
+    //
+    // The optimistic "processing" entries injected by handlePrecalculate are
+    // preserved here for the brief window before the first poll confirms the
+    // server-side state.  Once the server returns an entry for the same
+    // (pitch, tempo) pair the optimistic placeholder is naturally replaced.
     const existing = usePlayerStore.getState().versions;
     const optimisticOnly = existing.filter(
       (ev) =>
