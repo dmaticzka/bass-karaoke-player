@@ -102,6 +102,7 @@ class VersionStatus(StrEnum):
     READY = "ready"
     PARTIAL = "partial"
     MISSING = "missing"
+    PROCESSING = "processing"
 
 
 class Version(BaseModel):
