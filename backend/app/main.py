@@ -92,6 +92,13 @@ split_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_SPLIT_WORKERS)
 process_executor: concurrent.futures.ThreadPoolExecutor = (
     concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PROCESS_WORKERS)
 )
+# Set of (song_id, pitch_semitones, tempo_ratio) tuples for versions that are
+# currently being processed by _process_version_task.  Individual set
+# operations (add, discard, membership test) are GIL-atomic so no explicit
+# lock is required.  Callers that iterate the set must take a frozenset()
+# snapshot first to avoid RuntimeError if a background thread mutates it
+# concurrently.
+_in_progress: set[tuple[str, float, float]] = set()
 
 
 @asynccontextmanager
@@ -339,58 +346,72 @@ def _process_version_task(song_id: str, pitch: float, tempo: float) -> None:
     pool, which is bounded by MAX_PROCESS_WORKERS.  This limits the total number
     of concurrent rubberband invocations across all songs and acts as a queue
     when demand exceeds the pool capacity.
+
+    The caller is responsible for adding (song_id, pitch, tempo) to _in_progress
+    before scheduling this task.  This function only removes the entry in its
+    finally block so that list_versions always reflects the in-progress state
+    from the moment the task is scheduled, not from the moment the thread starts.
     """
-    song = storage.load_song(song_id)
-    if song is None:
-        logger.error("process_version_task: song %s not found", song_id)
-        return
+    try:
+        song = storage.load_song(song_id)
+        if song is None:
+            logger.error("process_version_task: song %s not found", song_id)
+            return
 
-    def _process_single_stem(stem_name: StemName) -> None:
-        input_path = storage.stem_path(song_id, stem_name)
-        if not input_path.exists():
-            raise AudioProcessorError(f"Stem file missing for {song_id}/{stem_name}")
-        output_path = storage.processed_path(song_id, stem_name, pitch, tempo)
-        if not output_path.exists():
-            # Write to a temporary path first, then rename atomically.  This
-            # prevents list_versions / version_status from seeing the file as
-            # present (and potentially READY) while rubberband is still writing
-            # it, which would cause the UI to prematurely drop the pending
-            # indicator on the version bubble.
-            tmp_path = output_path.with_suffix(".tmp")
-            try:
-                processor.process(
-                    input_path,
-                    tmp_path,
-                    pitch_semitones=pitch,
-                    tempo_ratio=tempo,
+        def _process_single_stem(stem_name: StemName) -> None:
+            input_path = storage.stem_path(song_id, stem_name)
+            if not input_path.exists():
+                raise AudioProcessorError(
+                    f"Stem file missing for {song_id}/{stem_name}"
                 )
-                tmp_path.rename(output_path)
-            except Exception:
-                tmp_path.unlink(missing_ok=True)
-                raise
+            output_path = storage.processed_path(song_id, stem_name, pitch, tempo)
+            if not output_path.exists():
+                # Write to a temporary path first, then rename atomically.  This
+                # prevents list_versions / version_status from seeing the file as
+                # present (and potentially READY) while rubberband is still writing
+                # it, which would cause the UI to prematurely drop the pending
+                # indicator on the version bubble.
+                tmp_path = output_path.with_suffix(".tmp")
+                try:
+                    processor.process(
+                        input_path,
+                        tmp_path,
+                        pitch_semitones=pitch,
+                        tempo_ratio=tempo,
+                    )
+                    tmp_path.rename(output_path)
+                except Exception:
+                    tmp_path.unlink(missing_ok=True)
+                    raise
 
-    futures: dict[concurrent.futures.Future[None], StemName] = {
-        process_executor.submit(_process_single_stem, stem): stem
-        for stem in (StemName(s) for s in song.stems)
-    }
+        futures: dict[concurrent.futures.Future[None], StemName] = {
+            process_executor.submit(_process_single_stem, stem): stem
+            for stem in (StemName(s) for s in song.stems)
+        }
 
-    failed = False
-    for future in concurrent.futures.as_completed(futures):
-        stem_name = futures[future]
-        try:
-            future.result()
-        except AudioProcessorError:
-            logger.exception(
-                "process_version_task: processing failed for %s/%s", song_id, stem_name
-            )
-            failed = True
+        failed = False
+        for future in concurrent.futures.as_completed(futures):
+            stem_name = futures[future]
+            try:
+                future.result()
+            except AudioProcessorError:
+                logger.exception(
+                    "process_version_task: processing failed for %s/%s",
+                    song_id,
+                    stem_name,
+                )
+                failed = True
 
-    if failed:
-        return
+        if failed:
+            return
 
-    storage.touch_version(song_id, pitch, tempo)
-    storage.evict_global_lru(MAX_VERSIONS_GLOBAL)
-    logger.info("Version (pitch=%s, tempo=%s) ready for song %s", pitch, tempo, song_id)
+        storage.touch_version(song_id, pitch, tempo)
+        storage.evict_global_lru(MAX_VERSIONS_GLOBAL)
+        logger.info(
+            "Version (pitch=%s, tempo=%s) ready for song %s", pitch, tempo, song_id
+        )
+    finally:
+        _in_progress.discard((song_id, pitch, tempo))
 
 
 # ---------------------------------------------------------------------------
@@ -660,12 +681,13 @@ def _song_router() -> APIRouter:
         The default version (pitch=0, tempo=1.0) is always included first and
         represents the unmodified stems produced by demucs.
 
-        Non-default versions are sourced exclusively from versions.json, which
-        is only written by touch_version() *after* all stems have been fully
-        processed and their output files atomically renamed into place.  This
-        means the list never contains an in-progress version, so the frontend
-        pending indicator on a version bubble stays active until the version is
-        truly ready.
+        Non-default versions come from two sources:
+        - versions.json (written by touch_version() after all stems are fully
+          processed): these are returned with their real status (ready/partial).
+        - _in_progress (in-memory set maintained by _process_version_task):
+          versions currently being processed are returned with status "processing".
+          This allows the frontend to restart polling after navigation without
+          relying on client-side optimistic state.
         """
         _require_ready_song(song_id)
         pairs = storage.list_versions(song_id)
@@ -677,6 +699,9 @@ def _song_router() -> APIRouter:
                 status=VersionStatus.READY,
             )
         ]
+        # Track which (pitch, tempo) pairs are already covered by versions.json
+        # so that a stale _in_progress entry never creates a duplicate entry.
+        committed_pairs: set[tuple[float, float]] = set()
         for pitch, tempo in pairs:
             if pitch == 0.0 and tempo == 1.0:
                 continue
@@ -689,6 +714,20 @@ def _song_router() -> APIRouter:
                     status=vstatus,
                 )
             )
+            committed_pairs.add((pitch, tempo))
+        # Append any versions currently being processed that are not yet committed.
+        # frozenset() snapshot prevents RuntimeError if a background thread mutates
+        # _in_progress while we iterate.
+        for sid, pitch, tempo in frozenset(_in_progress):
+            if sid == song_id and (pitch, tempo) not in committed_pairs:
+                versions.append(
+                    Version(
+                        pitch_semitones=pitch,
+                        tempo_ratio=tempo,
+                        is_default=False,
+                        status=VersionStatus.PROCESSING,
+                    )
+                )
         return VersionListResponse(versions=versions)
 
     @router.post(
@@ -708,6 +747,8 @@ def _song_router() -> APIRouter:
 
         Idempotent: returns status "ready" immediately if all stems already exist.
         If only some stems are cached (partial), reprocesses only the missing ones.
+        Returns status "processing" without starting a duplicate task if the same
+        version is already being processed.
         """
         _require_ready_song(song_id)
         vstatus = storage.version_status(
@@ -720,6 +761,18 @@ def _song_router() -> APIRouter:
                 tempo_ratio=params.tempo_ratio,
                 status="ready",
             )
+        if (song_id, params.pitch_semitones, params.tempo_ratio) in _in_progress:
+            return BulkProcessResponse(
+                song_id=song_id,
+                pitch_semitones=params.pitch_semitones,
+                tempo_ratio=params.tempo_ratio,
+                status="processing",
+            )
+        # Add to _in_progress synchronously in the endpoint — before scheduling
+        # the background task — so that any getVersions call arriving after this
+        # response is sent will immediately see status="processing".  The task
+        # itself only owns the cleanup (discard in its finally block).
+        _in_progress.add((song_id, params.pitch_semitones, params.tempo_ratio))
         background_tasks.add_task(
             _process_version_task, song_id, params.pitch_semitones, params.tempo_ratio
         )

@@ -481,6 +481,88 @@ describe("PlayerSection", () => {
     expect(usePlayerStore.getState().isLoading).toBe(false);
   });
 
+  it("handleApply adds a processing bubble immediately before any API call resolves", async () => {
+    // Block createVersion so we can inspect the synchronous part of the handler
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValue({ versions: [] });
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 110 });
+    });
+    // Click without draining microtasks — synchronous body of handler runs first
+    fireEvent.click(document.querySelector("#apply-btn")!);
+    const versions = usePlayerStore.getState().versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      pitch_semitones: 2,
+      tempo_ratio: 1.1,
+      is_default: false,
+      status: "processing",
+    });
+  });
+
+  it("handleApply does not add duplicate bubble if version already in list", async () => {
+    vi.mocked(api.createVersion).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getVersions).mockResolvedValue({ versions: [] });
+    usePlayerStore.setState({
+      activeSong: readySong,
+      pitch: 2,
+      tempo: 110,
+      versions: [
+        { pitch_semitones: 2, tempo_ratio: 1.1, is_default: false, status: "processing" },
+      ],
+    });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    fireEvent.click(document.querySelector("#apply-btn")!);
+    expect(usePlayerStore.getState().versions).toHaveLength(1);
+  });
+
+  it("handleApply calls createVersion with the current pitch and tempo", async () => {
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions).mockResolvedValue({ versions: [] });
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 3, tempo: 110 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#apply-btn")!);
+    });
+    expect(vi.mocked(api.createVersion)).toHaveBeenCalledWith(
+      readySong.id,
+      { pitch_semitones: 3, tempo_ratio: 1.1 },
+    );
+  });
+
+  it("handleApply calls fetchVersions in finally even when fetchAndDecodeStems throws", async () => {
+    // Trigger the offline-error throw path inside fetchAndDecodeStems
+    vi.mocked(audioCache.hasCached).mockResolvedValue(false);
+    vi.mocked(useOnlineStatus).mockReturnValue(false);
+    vi.mocked(api.createVersion).mockResolvedValue(undefined as never);
+    vi.mocked(api.getVersions).mockResolvedValue({ versions: [] });
+    usePlayerStore.setState({ activeSong: readySong });
+    await act(async () => {
+      render(<PlayerSection />);
+    });
+    const getVersionsCallsBefore = vi.mocked(api.getVersions).mock.calls.length;
+    await act(async () => {
+      usePlayerStore.setState({ pitch: 2, tempo: 100 });
+    });
+    await act(async () => {
+      fireEvent.click(document.querySelector("#apply-btn")!);
+    });
+    // fetchVersions() must have fired at least one additional getVersions call
+    expect(vi.mocked(api.getVersions).mock.calls.length).toBeGreaterThan(getVersionsCallsBefore);
+    expect(usePlayerStore.getState().isLoading).toBe(false);
+  });
+
   it("VersionsPicker selectVersion when same version does nothing", async () => {
     usePlayerStore.setState({ activeSong: readySong });
     await act(async () => {

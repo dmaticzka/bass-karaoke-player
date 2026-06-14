@@ -4,7 +4,9 @@ export type StemName = "drums" | "bass" | "vocals" | "other";
 
 export type SongStatus = "uploaded" | "queued" | "splitting" | "ready" | "error";
 
-// "processing" is a frontend-only optimistic status (not in VersionStatus enum)
+// "processing" is returned by the server for versions currently being
+// processed, and is also used as an optimistic status on the frontend
+// before the first poll confirms the server-side state.
 export type VersionStatus = "ready" | "partial" | "missing" | "processing";
 
 export interface Song {

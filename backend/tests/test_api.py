@@ -41,6 +41,7 @@ def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     main_module.processor = MagicMock()
     main_module.split_semaphore = asyncio.Semaphore(main_module.MAX_SPLIT_WORKERS)
     main_module.process_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    main_module._in_progress.clear()
 
     app = create_app()
     return TestClient(app, raise_server_exceptions=True)
@@ -1312,6 +1313,56 @@ class TestListVersions:
         assert versions[0]["tempo_ratio"] == 1.0
         assert versions[0]["is_default"] is True
 
+    def test_in_progress_version_shows_processing_status(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """An entry in _in_progress is exposed by list_versions as status='processing'."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        main_module._in_progress.add(("ver-song", 2.0, 1.5))
+
+        resp = client.get("/api/songs/ver-song/versions")
+        assert resp.status_code == 200
+        versions = resp.json()["versions"]
+        processing = [v for v in versions if not v["is_default"]]
+        assert len(processing) == 1
+        assert processing[0]["pitch_semitones"] == 2.0
+        assert processing[0]["tempo_ratio"] == 1.5
+        assert processing[0]["status"] == "processing"
+
+    def test_in_progress_entry_superseded_when_ready(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """A completed version in versions.json takes precedence over _in_progress.
+
+        If _process_version_task has already finished and called touch_version but
+        somehow the entry was not yet removed from _in_progress (e.g. a race), the
+        'ready' status from versions.json must win and the version must not appear
+        twice.
+        """
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        # Simulate a completed version committed to versions.json
+        for stem in StemName:
+            path = storage.processed_path("ver-song", stem, 2.0, 1.5)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"\x00" * 10)
+        storage.touch_version("ver-song", 2.0, 1.5)
+        # Also leave the stale _in_progress entry
+        main_module._in_progress.add(("ver-song", 2.0, 1.5))
+
+        resp = client.get("/api/songs/ver-song/versions")
+        assert resp.status_code == 200
+        versions = resp.json()["versions"]
+        non_default = [v for v in versions if not v["is_default"]]
+        assert len(non_default) == 1, "stale _in_progress must not create a duplicate"
+        assert non_default[0]["status"] == "ready"
+
     def test_song_not_found_returns_404(self, client: TestClient) -> None:
         resp = client.get("/api/songs/does-not-exist/versions")
         assert resp.status_code == 404
@@ -1528,6 +1579,49 @@ class TestCreateVersion:
         )
         assert resp.status_code == 422
 
+    def test_create_version_already_in_progress_skips_task(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """Calling create_version for an already-in-progress version must not
+        start a duplicate background task and must return status='processing'."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        main_module._in_progress.add(("cv-song", 2.0, 1.2))
+
+        with patch("backend.app.main._process_version_task") as mock_task:
+            resp = client.post(
+                "/api/songs/cv-song/versions",
+                json={"pitch_semitones": 2.0, "tempo_ratio": 1.2},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "processing"
+        mock_task.assert_not_called()
+
+    def test_create_version_adds_to_in_progress_before_task_runs(
+        self, client: TestClient, data_dir: Path
+    ) -> None:
+        """create_version must add the (song_id, pitch, tempo) triple to
+        _in_progress synchronously in the endpoint — before the background task
+        thread even starts — so that list_versions immediately returns
+        status='processing' for any getVersions call that arrives after the
+        POST response is sent."""
+        import backend.app.main as main_module
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+
+        with patch("backend.app.main._process_version_task"):
+            resp = client.post(
+                "/api/songs/cv-song/versions",
+                json={"pitch_semitones": 2.0, "tempo_ratio": 1.2},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "processing"
+        assert ("cv-song", 2.0, 1.2) in main_module._in_progress
+
 
 # ---------------------------------------------------------------------------
 # Updated list_versions: status, stem_count, accessed_at
@@ -1735,6 +1829,48 @@ class TestProcessVersionTask:
 
         assert storage.version_status("pvt-song", 3.0, 0.8) == VersionStatus.READY
         assert main_module.processor.process.call_count == len(StemName)
+
+    def test_task_removes_from_in_progress_on_success(self, data_dir: Path) -> None:
+        """_process_version_task must remove the _in_progress entry added by
+        create_version once processing succeeds."""
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        storage = SongStorage(data_dir)
+        main_module.storage = storage
+        main_module._in_progress.clear()
+        # Simulate the entry that create_version adds before scheduling the task.
+        main_module._in_progress.add(("pvt-song", 1.0, 1.2))
+
+        def fake_process(input_path, output_path, pitch_semitones=0.0, tempo_ratio=1.0):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"\x00")
+            return output_path
+
+        main_module.processor = MagicMock()
+        main_module.processor.process.side_effect = fake_process
+        _process_version_task("pvt-song", 1.0, 1.2)
+
+        assert ("pvt-song", 1.0, 1.2) not in main_module._in_progress
+
+    def test_task_removes_from_in_progress_on_failure(self, data_dir: Path) -> None:
+        """_process_version_task must remove the _in_progress entry even when
+        processing fails (AudioProcessorError), so the UI does not stall forever."""
+        import backend.app.main as main_module
+        from backend.app.main import _process_version_task
+
+        self._make_ready_song(data_dir)
+        main_module.storage = SongStorage(data_dir)
+        main_module._in_progress.clear()
+        # Simulate the entry that create_version adds before scheduling the task.
+        main_module._in_progress.add(("pvt-song", 2.0, 1.0))
+        main_module.processor = MagicMock()
+        main_module.processor.process.side_effect = AudioProcessorError("boom")
+
+        _process_version_task("pvt-song", 2.0, 1.0)  # must not raise
+
+        assert ("pvt-song", 2.0, 1.0) not in main_module._in_progress
 
 
 # ---------------------------------------------------------------------------
