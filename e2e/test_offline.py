@@ -21,21 +21,22 @@ from __future__ import annotations
 import pytest
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
 def _wait_for_sw_ready(page: Page) -> None:
-    """Block until the page's Service Worker is installed and controlling.
+    """Block until the page is controlled by the installed Service Worker.
 
     Resolves ``navigator.serviceWorker.ready``, which settles only when a
-    SW is active and controlling the page.  Then waits until the SW's
-    precache install event has fired (checked via the Cache Storage API) so
-    that offline reloads have all shell assets available.
+    SW is active, then waits for it to control the page and for the precache
+    install event to finish so offline reloads have all shell assets available.
     """
     page.evaluate("() => navigator.serviceWorker.ready")
+    page.wait_for_function(
+        "() => navigator.serviceWorker.controller !== null", timeout=15_000
+    )
     # Wait until at least one of the precached shell entries appears in
     # Cache Storage, confirming the install step has completed.
     page.wait_for_function(
@@ -43,6 +44,17 @@ def _wait_for_sw_ready(page: Page) -> None:
             names.some(n => n.startsWith('workbox-precache') || n.includes('shell')))""",
         timeout=15_000,
     )
+
+
+def _prime_song_list_cache(page: Page) -> None:
+    """Fetch the song list after the Service Worker starts controlling the page."""
+    with page.expect_response(
+        lambda response: (
+            response.url.endswith("/api/songs") and response.request.method == "GET"
+        )
+    ) as response_info:
+        page.locator("#refresh-btn").click()
+    assert response_info.value.status == 200
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +140,7 @@ class TestOfflineSongList:
         _wait_for_sw_ready(page)
         # Confirm the song list is populated while online.
         expect(page.locator(".song-item").first).to_be_visible()
+        _prime_song_list_cache(page)
 
         # Go offline and reload.
         fresh_context.set_offline(True)
@@ -165,6 +178,7 @@ class TestOfflineStemPlayback:
         # Online visit: register SW and load a song to cache its stems.
         page.goto("/")
         _wait_for_sw_ready(page)
+        _prime_song_list_cache(page)
 
         song_item = page.locator(f'.song-item[data-id="{ready_song_id}"]')
         expect(song_item).to_be_visible()
