@@ -3,7 +3,9 @@
   "extends": [
     "config:recommended"
   ],
-  "schedule": ["before 6am on Monday"],
+  "schedule": [
+    "before 6am on Monday"
+  ],
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "lockFileMaintenance": {
@@ -11,25 +13,68 @@
   },
   "packageRules": [
     {
+      "description": "Update Python in .python-version, pyproject.toml and Dockerfile together (minor/major only)",
+      "matchPackageNames": [
+        "python"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "Python version",
+      "separateMultipleMajor": false,
+      "automerge": false
+    },
+    {
       "description": "Combine all GitHub Actions updates into a single PR",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "GitHub Actions"
     },
     {
       "description": "Combine all Python backend dependency updates into a single PR",
-      "matchDatasources": ["pypi"],
+      "matchDatasources": [
+        "pypi"
+      ],
       "groupName": "Python backend dependencies"
     },
     {
       "description": "Group uv version updates in Dockerfile into a single PR",
-      "matchPackageNames": ["ghcr.io/astral-sh/uv"],
+      "matchPackageNames": [
+        "ghcr.io/astral-sh/uv"
+      ],
       "groupName": "uv"
     },
     {
       "description": "Combine all frontend dependency updates into a single PR",
-      "matchManagers": ["npm"],
-      "matchFileNames": ["frontend/package.json", "frontend/package-lock.json"],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        "frontend/package.json",
+        "frontend/package-lock.json"
+      ],
       "groupName": "Frontend dependencies"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Keep the single Python version in sync across .python-version and pyproject.toml",
+      "managerFilePatterns": [
+        "/^\\.python-version$/",
+        "/^pyproject\\.toml$/"
+      ],
+      "matchStrings": [
+        "^(?<currentValue>\\d+\\.\\d+)\\s*$",
+        "requires-python = \"==(?<currentValue>\\d+\\.\\d+)\\.\\*\"",
+        "\"Programming Language :: Python :: (?<currentValue>\\d+\\.\\d+)\"",
+        "python_version = \"(?<currentValue>\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "python",
+      "packageNameTemplate": "python",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ]
 }

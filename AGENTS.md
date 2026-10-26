@@ -11,7 +11,17 @@ frontend/dist/    build output; served by backend at /static/
 ```
 
 No root `package.json`. All Node tooling is scoped to `frontend/`.  
-Backend requires `PYTHONPATH=.` for imports; managed with `uv` (Python ≥ 3.14).
+Backend requires `PYTHONPATH=.` for imports; managed with `uv` (Python 3.14 only).
+
+### Python version (single source of truth)
+
+One Python minor version is used everywhere. Keep these in sync (Renovate updates them together as "Python version"):
+
+- `.python-version` (read by `uv` / `setup-uv` in all GitHub Actions workflows)
+- `pyproject.toml`: `requires-python = "==3.14.*"`, the `Programming Language :: Python :: 3.14` classifier, and mypy `python_version`
+- `Dockerfile`: both `FROM python:3.14-slim` stages
+
+Do not add a Python version to workflows; they inherit `.python-version`. After a bump, run `uv lock` to refresh `uv.lock`.
 
 ## Development workflow
 

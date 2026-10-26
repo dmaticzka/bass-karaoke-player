@@ -3,7 +3,7 @@ name = "bass-karaoke-player"
 version = "0.1.0"
 description = "A web-based karaoke/music player with stem splitting, pitch/tempo control"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = "==3.14.*"
 license = { text = "MIT" }
 authors = [{ name = "bass-karaoke-player contributors" }]
 keywords = ["music", "karaoke", "stems", "demucs", "rubberband"]
