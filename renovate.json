@@ -7,7 +7,7 @@
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "lockFileMaintenance": {
-    "enabled": true,
+    "enabled": true
   },
   "packageRules": [
     {
@@ -24,7 +24,6 @@
       "description": "Group uv version updates in Dockerfile into a single PR",
       "matchPackageNames": ["ghcr.io/astral-sh/uv"],
       "groupName": "uv"
-      "automerge": false
     },
     {
       "description": "Combine all frontend dependency updates into a single PR",
