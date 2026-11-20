@@ -22,7 +22,7 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # Stage 1: builder – install Python dependencies into a virtual environment
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.11.12@sha256:3a59a3cdd5f7c217faa36e32dbc7fddbb0412889c2a0a5229f6d790e5a019dd7 /uv /uvx /bin/
@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 LABEL org.opencontainers.image.title="Bass Karaoke Player"
 LABEL org.opencontainers.image.description="Web-based music player with stem splitting and pitch/tempo control"
